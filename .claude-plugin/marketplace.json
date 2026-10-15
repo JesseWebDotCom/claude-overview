@@ -1,0 +1,12 @@
+{
+  "name": "claude-overview",
+  "description": "Overview: a live Claude Code side pane for usage limits and running agents",
+  "owner": { "name": "Jesse Torres" },
+  "plugins": [
+    {
+      "name": "overview",
+      "source": "./",
+      "description": "A live side pane with your Claude and Codex usage limits and every agent running."
+    }
+  ]
+}

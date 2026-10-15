@@ -1,0 +1,8 @@
+{
+  "name": "overview",
+  "version": "0.1.0",
+  "description": "Usage limits and every agent in one live pane: subscriptions, Claude subagents and sessions, and Codex or any tmux session. Polls tmux, the transcripts folder and an optional lane health file itself; no model writes anything.",
+  "author": { "name": "Jesse Torres" },
+  "license": "MIT",
+  "keywords": ["claude-code-mod", "agents", "tmux", "codex"]
+}
