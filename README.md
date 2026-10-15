@@ -1,6 +1,6 @@
 # Overview
 
-A live side pane for Claude Code. It shows how much of your Claude and Codex limits you have used, what is filling this session's context (with a one-click Compact), which of your sessions are blocked waiting on you, which folders have uncommitted changes, and every agent running right now: subagents, spawned sessions, and Codex or any other tmux session.
+A live side pane for Claude Code. It shows how much of your Claude and Codex limits you have used, what is filling this session's context (with a one-click Compact), which of your sessions are blocked waiting on you, which folders have changes and how big they are, and every agent running right now: subagents, spawned sessions, and Codex or any other tmux session.
 
 <img src="assets/overview.gif" alt="Overview pane" width="450">
 
@@ -43,13 +43,15 @@ The Context card sits under your usage. It is one bar and one line, and opens in
 - **See what is taking the space.** Every category (system prompt, tools, MCP tools, memory files, skills, messages) has its own colour in the bar and its own row with tokens and percent. Memory files list each CLAUDE.md and AGENTS.md with its size, so you know which one is heavy.
 - **Get suggestions.** A category that has grown too big gets an amber or red dot and a one-line fix: turn off MCP servers you rarely use, trim a long CLAUDE.md, disable unused skills, compact a long conversation.
 
-## Uncommitted changes
+## Changes
 
-<img src="assets/uncommitted-card.png" alt="Uncommitted changes card" width="450">
+<img src="assets/changes-card.png" alt="Changes card" width="450">
 
-An amber card appears between Context and Sessions only when a folder you are working in has uncommitted files. It lists one row per folder with the file count, the biggest first, and it disappears again once everything is committed. It checks with `git status`, at most every 10 seconds, and never takes a git lock. The same summary ("± uncommitted · home 8") is pinned in the status line under the prompt.
+The Changes card sits between Context and Sessions and appears only when a folder you are working in has changes. The header always shows the total: how many files, lines added in green and lines removed in red, plus an **Open** button that asks Claude to open its own Changes pane. Like Claude's own count, a folder is measured against `origin/main` for its branch plus anything uncommitted.
 
-<img src="assets/uncommitted-status.png" alt="Uncommitted summary in the status line" width="600">
+The card is collapsed by default. Click the title to list one row per folder, biggest first, each with its own +/- and a **Create PR** button that opens a pull request for that folder. A failed Open or Create PR shows its reason in red under the rows. The card disappears once everything is committed and pushed. It checks with `git`, at most every 10 seconds, and never takes a git lock. The same summary is pinned in the status line under the prompt.
+
+<img src="assets/changes-status.png" alt="Changes summary in the status line" width="400">
 
 ## Good to know
 
