@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { paneSessions, dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
+import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
@@ -176,7 +176,9 @@ done`
     const subs = subagentRows(await run($, ['sh', '-c', subScript], 5000), nowSec)
     const runs = await run($, ['sh', '-c', 'for f in "$HOME"/Developer/github.com/*/*/data-scratch/sessions/*.json; do [ -f "$f" ] && tr -d "\\n" < "$f" && echo; done 2>/dev/null'], 3000)
     const index = await run($, ['sh', '-c', 'tail -n 200 "$HOME/.codex/session_index.jsonl" 2>/dev/null'], 3000)
-    const procs = procRows(await run($, ['ps', '-axo', 'pid=,ppid=,etime=,command='], 3000), paneSessions(paneOut))
+    const codexScript = String.raw`find "$HOME/.codex/sessions" -name 'rollout-*.jsonl' -mmin -240 2>/dev/null | tail -n 12 | xargs awk 'FNR<=8 { if (!c[FILENAME] && match($0, /"cwd":"[^"]*"/)) c[FILENAME]=substr($0, RSTART+7, RLENGTH-8); if (match($0, /"model":"[^"]*"/)) m[FILENAME]=substr($0, RSTART+9, RLENGTH-10); if (match($0, /"effort":"[^"]*"/)) e[FILENAME]=substr($0, RSTART+10, RLENGTH-11) } END { for (f in c) print c[f] "|||" m[f] "|||" e[f] }' 2>/dev/null`
+    const models = codexModels(await run($, ['sh', '-c', codexScript], 4000))
+    const procs = procRows(await run($, ['ps', '-axo', 'pid=,ppid=,etime=,command='], 3000), paneSessions(paneOut), models)
     const all = overlayRuns([...subs, ...claude, ...expandTitle(tmux, index), ...procs], runs)
     // A busy tmux pane redraws constantly, so its last-activity age is always 0s. For working rows, show how long it has been working since this mod first saw it.
     const keep = new Set(all.map(r => r.key))

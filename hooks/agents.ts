@@ -39,6 +39,23 @@ export function parsePanes(out: string): Pane[] {
   return panes
 }
 
+// `gpt-6-luna` and `low` become `GPT-6 Luna low`; an empty model gives `Codex`.
+export function codexModel(id: string, effort = ''): string {
+  const m = /^gpt-([\w.]+?)(?:-([a-z][\w]*))?$/i.exec(id.trim())
+  if (!m) return id.trim() ? id.trim() : 'Codex'
+  return 'GPT-' + m[1] + (m[2] ? ' ' + m[2][0].toUpperCase() + m[2].slice(1) : '') + (effort.trim() ? ' ' + effort.trim() : '')
+}
+
+// Lines of `<cwd>|||<model>|||<effort>` from the newest Codex rollout files: the model a run in that directory used.
+export function codexModels(out: string): Map<string, string> {
+  const m = new Map<string, string>()
+  for (const line of out.split('\n')) {
+    const [cwd, model = '', effort = ''] = line.trim().split('|||')
+    if (cwd && model) m.set(cwd, codexModel(model, effort))
+  }
+  return m
+}
+
 // Pane pid to session name for every pane, shells included: a headless run's pane command is its wrapper shell.
 export function paneSessions(out: string): Map<number, string> {
   const m = new Map<number, string>()
@@ -69,7 +86,7 @@ export function etimeSec(s: string): number | null {
 // parent chain reaches a tmux pane process (`paneSessions`: pane pid to session name) is shown under that session's name,
 // because the pane's own command is the wrapper shell and so has no tmux row. Only the codex binary counts, not the shell
 // that wraps it, and an interactive `codex` in tmux is already a tmux row.
-export function procRows(out: string, paneSessions: Map<number, string> = new Map()): Row[] {
+export function procRows(out: string, paneSessions: Map<number, string> = new Map(), models: Map<string, string> = new Map()): Row[] {
   const parsed: { pid: number; ppid: number; etime: string; cmd: string }[] = []
   for (const line of out.split('\n')) {
     const m = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/.exec(line)
@@ -86,7 +103,7 @@ export function procRows(out: string, paneSessions: Map<number, string> = new Ma
     if ((args[0].split('/').pop() ?? '') !== 'codex' || args[1] !== 'exec') continue
     const session = paneOf(p.pid)
     const file = /([^/\s]+)\.(?:md|txt)\b/.exec(p.cmd)
-    rows.push({ key: 'proc:' + p.pid, kind: 'tmux', name: session ?? (file ? 'codex exec ' + file[1] : 'codex exec'), state: 'working', model: undefined, detail: session ? 'Codex run' : 'Codex run (no tmux session)', ageSec: etimeSec(p.etime) })
+    rows.push({ key: 'proc:' + p.pid, kind: 'tmux', name: session ?? (file ? 'codex exec ' + file[1] : 'codex exec'), state: 'working', model: models.get(/(?:^|\s)-C\s+'?([^\s']+)/.exec(p.cmd)?.[1] ?? '') ?? 'Codex', detail: session ? 'Running' : 'Running (no tmux session)', ageSec: etimeSec(p.etime) })
   }
   return rows
 }
@@ -151,7 +168,8 @@ export function subagentRows(out: string, nowSec: number): Row[] {
     const m = /^(\d+) (.+\/projects\/([^/]+)\/([^/]+)\/subagents\/(agent-[^/]+)\.jsonl)$/.exec(head)
     if (!m) continue
     const age = Math.max(0, nowSec - Number(m[1]))
-    rows.push({ key: 'sub:' + m[5], kind: 'subagent', parent: m[4], name: clean(desc).trim() || m[5], state: ended !== '1' && (age < 30 || (/^tool /.test(act) && age < PENDING_TOOL_SEC)) ? 'working' : 'done', detail: activity(act), model: modelName(model) || undefined, ageSec: age })
+    const state: State = ended !== '1' && (age < 30 || (/^tool /.test(act) && age < PENDING_TOOL_SEC)) ? 'working' : 'done'
+    rows.push({ key: 'sub:' + m[5], kind: 'subagent', parent: m[4], name: clean(desc).trim() || m[5], state, detail: state === 'done' ? 'Finished' : activity(act), model: modelName(model) || undefined, ageSec: age })
   }
   return rows
 }

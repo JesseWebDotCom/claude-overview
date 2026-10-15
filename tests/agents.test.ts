@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { paneSessions, procRows,etimeSec, contextView, contextNote, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -262,9 +262,11 @@ test('procRows lists a headless codex exec, not its shell wrapper or an interact
     '80002 80001 02:00 zsh -c codex exec -',
     '80003 80002 02:00 codex exec -C /w -',
   ].join('\n')
-  const rows = procRows(out, new Map([[80002, 'bot-x-codex']]))
+  const rows = procRows(out, new Map([[80002, 'bot-x-codex']]), codexModels('/w|||gpt-6-luna|||low'))
   expect(rows).toHaveLength(3)
-  expect(rows[2]).toMatchObject({ key: 'proc:80003', name: 'bot-x-codex', detail: 'Codex run' })
+  expect(rows[2]).toMatchObject({ key: 'proc:80003', name: 'bot-x-codex', detail: 'Running', model: 'GPT-6 Luna low' })
+  expect(rows[0].model).toBe('Codex')
+  expect(codexModel('')).toBe('Codex')
   expect(rows[0]).toMatchObject({ key: 'proc:61037', name: 'codex exec BRIEF-maingate', state: 'working', ageSec: 312 })
   expect(rows[1]).toMatchObject({ name: 'codex exec', ageSec: 93784 })
   expect(typeOf(rows[0])).toBe('codex')
