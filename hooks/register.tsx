@@ -32,6 +32,16 @@ const ICON: Record<string, string> = {
   Codex: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><g fill="none" stroke="#4a86e8" stroke-width="1.8">' + [0, 60, 120, 180, 240, 300].map(a => `<rect x="8" y="1.5" width="8" height="12" rx="4" transform="rotate(${a} 12 12)"/>`).join('') + '</g></svg>',
 }
 const LEVEL_COLOR: Record<Level, string> = { ok: '#22c55e', warn: '#eab308', bad: '#ef4444' }
+// Line icons for the System meters, tinted by health.
+const meterIcon = (label: string, c: string): string => {
+  const body: Record<string, string> = {
+    CPU: '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5"/>' + [8, 12, 16].map(v => `<path d="M${v} 2v4M${v} 18v4M2 ${v}h4M18 ${v}h4"/>`).join(''),
+    Memory: '<rect x="2" y="7" width="20" height="10" rx="1.5"/><path d="M6 17v3M10 17v3M14 17v3M18 17v3M6 11h2M11 11h2M16 11h2"/>',
+    Disk: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+    GPU: '<rect x="2" y="6" width="20" height="11" rx="1.5"/><circle cx="9" cy="11.5" r="3"/><circle cx="16.5" cy="11.5" r="1.5"/><path d="M5 17v3M2 20h6"/>',
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><g fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body[label] ?? ''}</g></svg>`
+}
 const DOT: Record<Row['state'], string> = { needs: 'warning', problem: 'error', working: 'success', idle: 'inactive', done: 'inactive' }
 const WORD: Record<Row['state'], string> = { needs: 'waiting on you', problem: 'stuck', working: 'working', idle: 'idle', done: 'done' }
 
@@ -69,10 +79,10 @@ echo "disk=$(df -k / | awk 'NR==2{print $3"|"$2}')"
 fi
 command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits 2>/dev/null | sed 's/, /|/g; s/^/gpu=/'
 true
-ps -A -o %cpu=,rss=,comm= 2>/dev/null | awk '{c=$1; r=$2; $1=""; $2=""; sub(/^ +/,""); n=$0; sub(/.*\//,"",n); sub(/ \(.*/,"",n); C[n]+=c; R[n]+=r} END{for(n in C) printf "%s|%.0f|%d\n", n, C[n]/ncpu, R[n]*1024}' ncpu="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)" > "${TMPDIR:-/tmp}/ov-top.$$"
-echo "topcpu=$(sort -t'|' -k2 -nr "${TMPDIR:-/tmp}/ov-top.$$" | head -3 | awk -F'|' '$2>0{printf "%s%s:%s", s, $1, $2; s=";"}')"
-echo "topmem=$(sort -t'|' -k3 -nr "${TMPDIR:-/tmp}/ov-top.$$" | head -3 | awk -F'|' '{printf "%s%s:%s", s, $1, $3; s=";"}')"
-rm -f "${TMPDIR:-/tmp}/ov-top.$$"`
+ps -A -o %cpu=,rss=,comm= 2>/dev/null | awk '{c=$1; r=$2; $1=""; $2=""; sub(/^ +/,""); n=$0; sub(/.*\//,"",n); sub(/ \(.*/,"",n); C[n]+=c; R[n]+=r} END{for(n in C) printf "%s|%.0f|%d\n", n, C[n]/ncpu, R[n]*1024}' ncpu="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)" > /tmp/ov-top.$$
+echo "topcpu=$(sort -t'|' -k2 -nr /tmp/ov-top.$$ | head -3 | awk -F'|' '$2>0{printf "%s%s:%s", s, $1, $2; s=";"}')"
+echo "topmem=$(sort -t'|' -k3 -nr /tmp/ov-top.$$ | head -3 | awk -F'|' '{printf "%s%s:%s", s, $1, $3; s=";"}')"
+rm -f /tmp/ov-top.$$`
 // Cards the person hid, by id; read from the plugin's /config toggles every poll.
 const CARDS: [string, string][] = [['subscriptions', 'Subscriptions'], ['system', 'System'], ['context', 'Context'], ['changes', 'Changes'], ['sessions', 'Sessions'], ['agents', 'Agents']]
 const hidden = new Set<string>()
@@ -440,14 +450,14 @@ export const register: Register = on => {
             </Button>
             <Box gap={2} flexShrink={1} minWidth={0} flexWrap="wrap" justifyContent="flex-end">
               {sysv.meters.map(m => (
-                <Text key={m.label} size="caption" dimColor tabular><Text color={LEVEL_COLOR[m.level]}>●</Text> {m.label === 'Memory' ? 'Mem' : m.label} {Math.round(m.pct)}%</Text>
+                <Box key={m.label} gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Text size="caption" dimColor tabular>{Math.round(m.pct)}%</Text></Box>
               ))}
             </Box>
           </Box>
           {!closed.has('system') && sysv.meters.map(m => (
             <Box key={m.label} flexDirection="column">
               <Box justifyContent="space-between" gap={2}>
-                {m.top && m.top.length > 0 ? <Button plain key={'tm' + m.label} onPress={() => toggle('top' + m.label)}><Text size="caption" bold><Text color={LEVEL_COLOR[m.level]}>●</Text> {m.label} {closed.has('top' + m.label) ? '›' : '⌄'}</Text></Button> : <Text size="caption" bold><Text color={LEVEL_COLOR[m.level]}>●</Text> {m.label}</Text>}
+                {m.top && m.top.length > 0 ? <Button plain key={'tm' + m.label} onPress={() => toggle('top' + m.label)}><Box gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Text size="caption" bold>{m.label} {closed.has('top' + m.label) ? '›' : '⌄'}</Text></Box></Button> : <Box gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Text size="caption" bold>{m.label}</Text></Box>}
                 <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor tabular wrap="truncate-end">{m.detail}</Text></Box>
               </Box>
               <Svg height={4} alt={m.label + ' use'} source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none"><rect width="700" height="4" rx="2" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(4, Math.min(100, m.pct) * 7)}" height="4" rx="2" fill="${LEVEL_COLOR[m.level]}"/></svg>`} />
