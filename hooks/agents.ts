@@ -177,20 +177,31 @@ export function subagentRows(out: string, nowSec: number): Row[] {
 // One JSON object per line from `data-scratch/sessions/*.json` (written by `wt.sh start` and `wt.sh run`): a tmux row whose
 // session name matches is owned by that Claude session (so it nests under it) and carries the run's state.
 export function overlayRuns(rows: Row[], out: string): Row[] {
-  const by = new Map<string, { owner?: string; runState?: string }>()
+  const by = new Map<string, { owner?: string; runState?: string; path?: string }>()
   for (const line of out.split('\n')) {
     try {
-      const j = JSON.parse(line) as { tmux?: string | null; owner?: string; runState?: string }
+      const j = JSON.parse(line) as { tmux?: string | null; owner?: string; runState?: string; path?: string }
       if (j.tmux) by.set(j.tmux, j)
     } catch { /* not a session file */ }
   }
-  return rows.map(r => {
+  const waiting = new Map<string, string[]>()
+  const mapped = rows.map(r => {
     const it = r.kind === 'tmux' ? by.get(r.name) : undefined
     if (!it) return r
     const owner = it.owner && it.owner !== 'codex' ? it.owner : undefined
     const run = it.runState ?? ''
     const state: State = /^(FAILED|DIED|TIMEOUT)$/.test(run) ? 'problem' : r.state
-    return { ...r, state, owner, parent: owner ?? r.parent, detail: run && run !== 'running' ? run + ' · ' + r.detail : r.detail }
+    const where = it.path ? it.path.split('/').pop() ?? '' : ''
+    // A bare "Running" says nothing: name the worktree the run works in.
+    const base = run === 'running' && where && /^Running\b/.test(r.detail) ? r.detail + ' in ' + where : r.detail
+    if (owner && run === 'running') waiting.set(owner, [...(waiting.get(owner) ?? []), where || r.name])
+    return { ...r, state, owner, parent: owner ?? r.parent, detail: run && run !== 'running' ? run + ' · ' + base : base }
+  })
+  // The owner's turn may already have ended while its run keeps going: show that wait instead of an idle, blank row.
+  return mapped.map(r => {
+    const runs = r.kind === 'claude' && r.parent ? waiting.get(r.parent) : undefined
+    if (!runs || r.state !== 'idle') return r
+    return { ...r, state: 'working' as State, detail: 'Waiting on ' + (runs.length > 1 ? runs.length + ' runs: ' : 'run: ') + runs.join(', ') }
   })
 }
 

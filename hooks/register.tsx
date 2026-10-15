@@ -63,6 +63,14 @@ async function compact($: any): Promise<void> {
   void $.ui.invalidate('ui.render')
 }
 
+// A session stays "active" for a grace period after it was last seen working: a transcript is quiet between tool calls, and the
+// card is rebuilt several times per poll, so reading live state once would make the green bar, square and word blink.
+const LIVE_GRACE_MS = 20_000
+const liveSeen = new Map<string, number>()
+const liveNow = (nowMs: number): Set<string> => {
+  for (const [id, at] of liveSeen) if (nowMs - at > LIVE_GRACE_MS) liveSeen.delete(id)
+  return new Set(liveSeen.keys())
+}
 const closed = new Set<string>(['inactive', 'context', 'sessions'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
@@ -161,7 +169,7 @@ done`
     try { me = String(await $.session.id()) } catch {}
     sessOut = await run($, ['sh', '-c', sessScript], 6000)
     sessMe = me
-    sess = sessionRows(sessOut, nowMs, me)
+    sess = sessionRows(sessOut, nowMs, me, liveNow(nowMs))
     await refreshDirty($, [...claude.map(r => r.cwd ?? ''), ...sess.map(x => x.cwd)], nowMs)
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
@@ -193,7 +201,8 @@ done`
       const at = since.get(r.key)!.at
       return r.state === 'working' && r.kind === 'tmux' ? { ...r, ageSec: Math.max(0, (nowMs - at) / 1000) } : r
     }))
-    sess = sessionRows(sessOut, nowMs, sessMe, liveParents(rows))
+    for (const id of liveParents(rows)) liveSeen.set(id, nowMs)
+    sess = sessionRows(sessOut, nowMs, sessMe, liveNow(nowMs))
     polledAt = nowMs
     $.ui.invalidate('ui.render')
   } finally {

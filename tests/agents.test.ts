@@ -35,6 +35,17 @@ test('a tmux row named in a wt.sh session file gets its owner and run state', ()
   expect(overlayRuns(rows, JSON.stringify({ tmux: 'other', owner: 'codex', runState: 'running' }))[1]).toMatchObject({ owner: undefined, state: rows[1].state })
 })
 
+test('an idle owner waits on its running Codex run, and the run names its worktree', () => {
+  const owner = claudeRows('900 /h/.claude/projects/-Users-x-Developer-github-com-o-repo/sess-1.jsonl|||Voice|||write|||1|||claude-sonnet-5-5|||/r', 1000)
+  const run = [tmuxRow({ session: 'bot-amber-codex', id: '%1', command: 'node', activity: 0, dead: false }, '', 0)]
+  run[0].detail = 'Running'
+  const out = JSON.stringify({ tmux: 'bot-amber-codex', owner: 'sess-1', runState: 'running', path: '/w/bot-amber-sc-voice' })
+  const [o, r] = overlayRuns([...owner, ...run], out)
+  expect(o).toMatchObject({ state: 'working', detail: 'Waiting on run: bot-amber-sc-voice' })
+  expect(r.detail).toBe('Running in bot-amber-sc-voice')
+  expect(overlayRuns([...owner, ...run], out.replace('running', 'DONE'))[0].state).toBe('idle')
+})
+
 test('clean drops spinner and icon glyphs', () => {
   expect(clean('26.10.0 ⠀⣿  6.39s')).toBe('26.10.0 6.39s')
 })
