@@ -51,6 +51,23 @@ const NARROW_COLS = 80
 
 // "Show changes" asks the host to open its own Changes pane, so the shortcut stays the host's to define; /diff is the fallback.
 let changesMsg = ''
+let prBusy = false
+// Opens a pull request for the folder's branch with gh; the message line shows the new URL or why it failed.
+async function createPr($: any, dir: string): Promise<void> {
+  if (prBusy) return
+  prBusy = true
+  changesMsg = 'Creating PR…'
+  void $.ui.invalidate('ui.render')
+  try {
+    const r = await $.process.run(['sh', '-c', 'cd "$1" && gh pr create --fill 2>&1', '_', dir], { timeoutMs: 30000 })
+    const out = String(r.stdout ?? '').trim().split('\n').filter(Boolean).pop() ?? ''
+    changesMsg = r.exitCode === 0 ? out : 'Could not create PR: ' + out.slice(0, 80)
+  } catch (err) {
+    changesMsg = 'Could not create PR: ' + String((err as any)?.message ?? err).slice(0, 80)
+  }
+  prBusy = false
+  void $.ui.invalidate('ui.render')
+}
 async function showChanges($: any): Promise<void> {
   changesMsg = ''
   try { await $.tool.call({ tool: 'mcp__ccd_view__show_pane', pane: 'diff', diff_scope: 'all' } as never) } catch (first) {
@@ -103,8 +120,8 @@ export function dirtyBrief(map: Map<string, { n: number }>): string {
   const shown = items.slice(0, 3).map(([d, v]) => (d.split('/').pop() || d) + ' ' + v.n)
   return '± uncommitted · ' + shown.join(' · ') + (items.length > 3 ? ' · +' + (items.length - 3) + ' more' : '')
 }
-export const dirtyStats = (map: Map<string, { n: number; add?: number; del?: number }>): { name: string; n: number; add: number; del: number }[] =>
-  [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => ({ name: d.split('/').pop() || d, n: v.n, add: v.add ?? 0, del: v.del ?? 0 }))
+export const dirtyStats = (map: Map<string, { n: number; add?: number; del?: number }>): { name: string; path: string; n: number; add: number; del: number }[] =>
+  [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => ({ name: d.split('/').pop() || d, path: d, n: v.n, add: v.add ?? 0, del: v.del ?? 0 }))
 export const dirtyList = (map: Map<string, { n: number }>): [string, number][] =>
   [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => [d.split('/').pop() || d, v.n])
 async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
@@ -382,7 +399,10 @@ export const register: Register = on => {
                 <Text size="footnote" bold color="#4ade80" tabular>+{r.add}</Text>
                 <Text size="footnote" bold color="#f87171" tabular>-{r.del}</Text>
               </Box>
-              <Button key={'diff-' + r.name} onPress={() => { void showChanges($) }}><Text size="footnote" bold>Show changes</Text></Button>
+              <Box gap={2}>
+                <Button key={'diff-' + r.name} onPress={() => { void showChanges($) }}><Text size="footnote" bold>Show</Text></Button>
+                <Button key={'pr-' + r.name} onPress={() => { void createPr($, r.path) }}><Text size="footnote" bold>Create PR</Text></Button>
+              </Box>
             </Box>
           ))}
           {changesMsg !== '' && <Text size="caption" color="#e5736f" wrap="truncate-end">{changesMsg}</Text>}
