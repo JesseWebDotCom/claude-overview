@@ -2,7 +2,7 @@
 
 A live side pane for Claude Code. It shows how much of your Claude and Codex limits you have used, and every agent running right now: your Claude sessions, their subagents, and Codex or any other tmux session.
 
-![Overview pane](assets/overview.gif)
+<img src="assets/overview.gif" alt="Overview pane" width="450">
 
 *Preview with made-up sessions.*
 
