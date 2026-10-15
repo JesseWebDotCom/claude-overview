@@ -43,6 +43,10 @@ The Context card sits under your usage. It is one bar and one line, and opens in
 - **See what is taking the space.** Every category (system prompt, tools, MCP tools, memory files, skills, messages) has its own colour in the bar and its own row with tokens and percent. Memory files list each CLAUDE.md and AGENTS.md with its size, so you know which one is heavy.
 - **Get suggestions.** A category that has grown too big gets an amber or red dot and a one-line fix: turn off MCP servers you rarely use, trim a long CLAUDE.md, disable unused skills, compact a long conversation.
 
+## Uncommitted changes
+
+An amber card appears between Context and Sessions only when a folder you are working in has uncommitted files. It lists one row per folder with the file count, the biggest first, and it disappears again once everything is committed. It checks with `git status`, at most every 10 seconds, and never takes a git lock.
+
 ## Good to know
 
 - Codex and Claude usage appear only when there is a reading. No Codex, no Codex card.
