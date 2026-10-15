@@ -180,7 +180,10 @@ export const register: Register = on => {
     const row = (r: Row) => (
       <Box key={r.key} flexDirection="column" marginLeft={((r as any).depth ?? 0) * 2}>
         <Box justifyContent="space-between" gap={2}>
-          <Box flexShrink={1} minWidth={0}><Text size="footnote" wrap="truncate-end"><Text color={TYPE_COLOR[typeOf(r)]} dimColor={(r as any).depth > 0 && r.state === 'working' && pulse}>{(r as any).depth > 0 ? '↳' : r.state === 'working' && pulse ? '□' : '■'}</Text>  <Text bold>{r.name}</Text></Text></Box>
+          <Box flexShrink={1} minWidth={0} gap={1}>
+            <Box flexShrink={0}><Text size="footnote" color={TYPE_COLOR[typeOf(r)]} dimColor={(r as any).depth > 0 && r.state === 'working' && pulse}>{(r as any).depth > 0 ? '↳' : r.state === 'working' && pulse ? '□' : '■'}</Text></Box>
+            <Box flexShrink={1} minWidth={0}><Text size="footnote" bold wrap="truncate-end">{r.name}</Text></Box>
+          </Box>
           <Box gap={1} flexShrink={0}>
             {r.state === 'problem' && <Text size="caption" color="#f85149" bold>stuck</Text>}
             {r.state === 'needs' && <Text size="caption" color="#e3a008" bold>waiting</Text>}
