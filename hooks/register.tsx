@@ -83,6 +83,9 @@ export function dirtyBrief(map: Map<string, { n: number }>): string {
   const shown = items.slice(0, 3).map(([d, v]) => (d.split('/').pop() || d) + ' ' + v.n)
   return '± uncommitted · ' + shown.join(' · ') + (items.length > 3 ? ' · +' + (items.length - 3) + ' more' : '')
 }
+export const dirtyList = (map: Map<string, { n: number }>): [string, number][] =>
+  [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => [d.split('/').pop() || d, v.n])
+export const dirtyFiles = (map: Map<string, { n: number }>): number => [...map.values()].reduce((t, v) => t + v.n, 0)
 async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
   const want = [...new Set(cwds.filter(Boolean))].filter(d => nowMs - (dirty.get(d)?.at ?? 0) >= DIRTY_MS).slice(0, 24)
   if (want.length > 0) {
@@ -343,9 +346,17 @@ export const register: Register = on => {
             </Box>}
           </Box>}
         </Box>}
-        {dirtyBrief(dirty) !== '' && <Box borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={0} gap={1}>
-          <Text size="footnote" color="#e3a008" bold>±</Text>
-          <Box flexShrink={1} minWidth={0}><Text size="caption" wrap="truncate-end">{dirtyBrief(dirty).replace('± uncommitted · ', '')}</Text></Box>
+        {dirtyBrief(dirty) !== '' && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1}>
+          <Box justifyContent="space-between" gap={2}>
+            <Text size="footnote" bold>Uncommitted changes</Text>
+            <Text size="caption" color="#e3a008">{dirtyFiles(dirty)} {dirtyFiles(dirty) === 1 ? 'file' : 'files'}</Text>
+          </Box>
+          {dirtyList(dirty).map(([name, n]) => (
+            <Box key={name} justifyContent="space-between" gap={2}>
+              <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{name}</Text></Box>
+              <Box flexShrink={0}><Text size="caption" dimColor tabular>{n} {n === 1 ? 'file' : 'files'}</Text></Box>
+            </Box>
+          ))}
         </Box>}
         <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
