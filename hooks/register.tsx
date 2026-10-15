@@ -72,23 +72,19 @@ true`
 // Cards the person hid, by id; read from the plugin's /config toggles every poll.
 const CARDS: [string, string][] = [['subscriptions', 'Subscriptions'], ['system', 'System'], ['context', 'Context'], ['changes', 'Changes'], ['sessions', 'Sessions'], ['agents', 'Agents']]
 const hidden = new Set<string>()
-const cfgKeys = new Map<string, string>()
+// Saved in ~/.claude/overview.json as {"hidden":["agents"]}; edit it by hand or use `/overview hide agents`.
+const CFG = '$HOME/.claude/overview.json'
 async function readCards($: any): Promise<void> {
-  try {
-    const list: any[] = await $.config.list()
-    for (const [id] of CARDS) {
-      const f = 'show' + id[0].toUpperCase() + id.slice(1)
-      const r = list.find(x => String(x.key).endsWith('.' + f))
-      if (!r) continue
-      cfgKeys.set(id, String(r.key))
-      r.value === false ? hidden.add(id) : hidden.delete(id)
-    }
-  } catch { /* no config surface: every card shows */ }
+  const out = await run($, ['sh', '-c', `cat "${CFG}" 2>/dev/null`])
+  let ids: string[] = []
+  try { ids = JSON.parse(out).hidden ?? [] } catch { /* no file yet: every card shows */ }
+  hidden.clear()
+  for (const id of ids) if (CARDS.some(c => c[0] === id)) hidden.add(id)
 }
 async function setCard($: any, id: string, show: boolean): Promise<void> {
   show ? hidden.delete(id) : hidden.add(id)
   void $.ui.invalidate('ui.render')
-  try { await $.config.set({ key: cfgKeys.get(id) ?? 'overview.show' + id[0].toUpperCase() + id.slice(1), value: show }) } catch { /* the choice still holds until the next poll re-reads /config */ }
+  await run($, ['sh', '-c', `printf '%s' "$1" > "${CFG}"`, '_', JSON.stringify({ hidden: [...hidden] })])
 }
 let compactingSince = 0 // 0 = idle; -1 = stamp at next draw
 let compactFrom = 0
@@ -314,7 +310,7 @@ done`
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    try { await $.command.register({ name: 'overview', description: 'Show every agent (subagents, Claude sessions, tmux) in a live pane' }) } catch { /* the pane still works */ }
+    try { await $.command.register({ name: 'overview', description: 'Open the Overview pane; /overview hide <card> or show <card> (subscriptions, system, context, changes, sessions, agents)' }) } catch { /* the pane still works */ }
     void $.ui.open({ id: PANE, title: 'Overview' })
     void poll($)
     $.clock.every(POLL_MS, () => { void poll($) })
@@ -322,9 +318,17 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: 'overview' }, async $ => {
+  on('command.run', { command: 'overview' }, async ($, e) => {
+    const [verb, ...rest] = String(e.args ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)
+    if (verb === 'hide' || verb === 'show') {
+      const names = rest.length === 0 || rest[0] === 'all' ? CARDS.map(c => c[0]) : rest.map(w => CARDS.find(c => c[0] === w || c[0] === w + 's' || c[0] + 's' === w)?.[0]).filter((x): x is string => !!x)
+      if (names.length === 0) return { text: 'Cards: ' + CARDS.map(c => c[0]).join(', ') + '. Use /overview hide <card> or /overview show <card> (or all).' }
+      await readCards($)
+      for (const id of names) await setCard($, id, verb === 'show')
+      return { text: (verb === 'show' ? 'Showing ' : 'Hiding ') + names.join(', ') + '.' }
+    }
     await $.ui.open({ id: PANE, title: 'Overview' })
-    return { text: 'Agents pane opened.' }
+    return { text: 'Overview pane opened. /overview hide <card> or show <card>; cards: ' + CARDS.map(c => c[0]).join(', ') + '.' }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {

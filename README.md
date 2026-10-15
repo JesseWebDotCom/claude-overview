@@ -49,7 +49,7 @@ The System card sits above Context. Collapsed, it is one line: a dot and a perce
 
 ## Show or hide cards
 
-Every card has a switch. Open **Cards** at the bottom of the pane and click a name to hide or show it, or use `/config` and flip "Show the Sessions card" and the others. The choice is kept between sessions.
+Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, system, context, changes, sessions, agents; `all` works too). The **Cards** row at the bottom of the pane does the same with a click. The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
 
 ## Changes
 
