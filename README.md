@@ -49,11 +49,13 @@ The System card is the first card in the pane. Collapsed, it is one line: an ico
 
 <img src="assets/overview-cards.png" alt="System expanded with top processes, then compact Context, Sessions and Agents cards" width="450">
 
-## Show or hide cards
+## Show, hide or reorder cards
 
-Cards run in a fixed order: System, Changes, Subscriptions, Context, Sessions, Agents. Context and Sessions are two lines each, with the bar beside the title. In Sessions the second line shows the waiting state on the left and the summary on the right.
+By default cards run in this order: System, Changes, Subscriptions, Context, Sessions, Agents. Context and Sessions are two lines each, with the bar beside the title. In Sessions the second line shows the waiting state on the left and the summary on the right.
 
 Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, system, context, changes, sessions, agents; `all` works too). The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
+
+To reorder, type `/overview first agents` to put Agents at the top, or `/overview last agents` to send it to the bottom. Name several to place them in that order (`/overview first sessions agents`). `/overview reset` brings back the default order. The order is kept in the same file, for example `{"hidden":[],"order":["agents","system"]}`.
 
 ## Changes
 

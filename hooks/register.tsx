@@ -86,19 +86,27 @@ rm -f /tmp/ov-top.$$`
 // Cards the person hid, by id; read from the plugin's /config toggles every poll.
 const CARDS: [string, string][] = [['system', 'System'], ['changes', 'Changes'], ['subscriptions', 'Subscriptions'], ['context', 'Context'], ['sessions', 'Sessions'], ['agents', 'Agents']]
 const hidden = new Set<string>()
-// Saved in ~/.claude/overview.json as {"hidden":["agents"]}; edit it by hand or use `/overview hide agents`.
+// Card ids in the order the person chose; cards not listed follow in the default order.
+let order: string[] = []
+const cardOrder = (): string[] => [...order, ...CARDS.map(c => c[0]).filter(id => !order.includes(id))]
+// Saved in ~/.claude/overview.json as {"hidden":["agents"],"order":["agents"]}; edit it by hand or use `/overview hide agents`, `/overview first agents`.
 const CFG = '$HOME/.claude/overview.json'
 async function readCards($: any): Promise<void> {
   const out = await run($, ['sh', '-c', `cat "${CFG}" 2>/dev/null`])
   let ids: string[] = []
-  try { ids = JSON.parse(out).hidden ?? [] } catch { /* no file yet: every card shows */ }
+  let ord: string[] = []
+  try { const j = JSON.parse(out); ids = j.hidden ?? []; ord = j.order ?? [] } catch { /* no file yet: every card shows, default order */ }
   hidden.clear()
   for (const id of ids) if (CARDS.some(c => c[0] === id)) hidden.add(id)
+  order = ord.filter((id, i) => CARDS.some(c => c[0] === id) && ord.indexOf(id) === i)
+}
+async function saveCards($: any): Promise<void> {
+  void $.ui.invalidate('ui.render')
+  await run($, ['sh', '-c', `printf '%s' "$1" > "${CFG}"`, '_', JSON.stringify({ hidden: [...hidden], order })])
 }
 async function setCard($: any, id: string, show: boolean): Promise<void> {
   show ? hidden.delete(id) : hidden.add(id)
-  void $.ui.invalidate('ui.render')
-  await run($, ['sh', '-c', `printf '%s' "$1" > "${CFG}"`, '_', JSON.stringify({ hidden: [...hidden] })])
+  await saveCards($)
 }
 let compactingSince = 0 // 0 = idle; -1 = stamp at next draw
 let compactFrom = 0
@@ -324,7 +332,7 @@ done`
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    try { await $.command.register({ name: 'overview', description: 'Open the Overview pane; /overview hide <card> or show <card> (subscriptions, system, context, changes, sessions, agents)' }) } catch { /* the pane still works */ }
+    try { await $.command.register({ name: 'overview', description: 'Open the Overview pane; /overview hide, show, first or last <card> (subscriptions, system, context, changes, sessions, agents)' }) } catch { /* the pane still works */ }
     void $.ui.open({ id: PANE, title: 'Overview' })
     void poll($)
     $.clock.every(POLL_MS, () => { void poll($) })
@@ -334,9 +342,20 @@ export const register: Register = on => {
 
   on('command.run', { command: 'overview' }, async ($, e) => {
     const [verb, ...rest] = String(e.args ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)
+    const find = (w: string) => CARDS.find(c => c[0] === w || c[0] === w + 's' || c[0] + 's' === w)?.[0]
+    if (verb === 'first' || verb === 'last' || verb === 'reset') {
+      await readCards($)
+      if (verb === 'reset') { order = []; await saveCards($); return { text: 'Card order reset: ' + cardOrder().join(', ') + '.' } }
+      const names = rest.map(find).filter((x): x is string => !!x)
+      if (names.length === 0) return { text: 'Cards: ' + cardOrder().join(', ') + '. Use /overview ' + verb + ' <card> (several allowed), or /overview reset.' }
+      const cur = cardOrder().filter(id => !names.includes(id))
+      order = verb === 'first' ? [...names, ...cur] : [...cur, ...names]
+      await saveCards($)
+      return { text: 'Card order: ' + order.join(', ') + '.' }
+    }
     if (verb === 'hide' || verb === 'show') {
-      const names = rest.length === 0 || rest[0] === 'all' ? CARDS.map(c => c[0]) : rest.map(w => CARDS.find(c => c[0] === w || c[0] === w + 's' || c[0] + 's' === w)?.[0]).filter((x): x is string => !!x)
-      if (names.length === 0) return { text: 'Cards: ' + CARDS.map(c => c[0]).join(', ') + '. Use /overview hide <card> or /overview show <card> (or all).' }
+      const names = rest.length === 0 || rest[0] === 'all' ? CARDS.map(c => c[0]) : rest.map(find).filter((x): x is string => !!x)
+      if (names.length === 0) return { text: 'Cards: ' + CARDS.map(c => c[0]).join(', ') + '. Use /overview hide <card> or /overview show <card> (or all); /overview first <card> or last <card> moves one.' }
       await readCards($)
       for (const id of names) await setCard($, id, verb === 'show')
       return { text: (verb === 'show' ? 'Showing ' : 'Hiding ') + names.join(', ') + '.' }
@@ -419,9 +438,8 @@ export const register: Register = on => {
         <Text size="caption" dimColor>{n}</Text>
       </Box>
     )
-    return (
-      <Box flexDirection="column" paddingX={1} paddingY={1} gap={1}>
-        {!hidden.has('system') && sysv && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+    const cards: Record<string, any> = {
+      system: !hidden.has('system') && sysv && <Box key="system" flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" alignItems="center" gap={2}>
             <Button plain key="tsystem" onPress={() => toggle('system')}>
               <Text size="footnote" bold>System {closed.has('system') ? '›' : '⌄'}</Text>
@@ -448,8 +466,8 @@ export const register: Register = on => {
             </Box>
           ))}
           {!closed.has('system') && sysv.note !== '' && <Text size="caption" color="#eab308" wrap="truncate-end">{sysv.note}</Text>}
-        </Box>}
-        {!hidden.has('changes') && dirtyStats(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        </Box>,
+      changes: !hidden.has('changes') && dirtyStats(dirty).length > 0 && <Box key="changes" flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" alignItems="center">
             <Button plain key="tchanges" onPress={() => toggle('changes')}>
               <Text size="footnote" bold>Changes {closed.has('changes') ? '›' : '⌄'}</Text>
@@ -475,8 +493,8 @@ export const register: Register = on => {
             </Box>
           ))}
           {changesMsg !== '' && <Text size="caption" color="#e5736f" wrap="truncate-end">{changesMsg}</Text>}
-        </Box>}
-        {!hidden.has('subscriptions') && (claudeLim.length > 0 || codexLim.length > 0) && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        </Box>,
+      subscriptions: !hidden.has('subscriptions') && (claudeLim.length > 0 || codexLim.length > 0) && <Box key="subscriptions" flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Text size="footnote" bold>Subscriptions</Text>
           {[['Claude', claudeLim], ['Codex', codexLim]].map(([who, list]: any) => {
             if (list.length === 0) return null
@@ -497,8 +515,8 @@ export const register: Register = on => {
               </Box>
             )
           })}
-        </Box>}
-        {ctx && !hidden.has('context') && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        </Box>,
+      context: ctx && !hidden.has('context') && <Box key="context" flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box gap={2} alignItems="center">
             <Button plain key="tcontext" onPress={() => toggle('context')}>
               <Text size="footnote" bold>Context {closed.has('context') ? '›' : '⌄'}</Text>
@@ -537,8 +555,8 @@ export const register: Register = on => {
               ))}
             </Box>}
           </Box>}
-        </Box>}
-        {!hidden.has('sessions') && <Box flexDirection="column" borderStyle="round" borderColor={waiting ? `rgba(227,160,8,${PULSE[Math.floor(now / TICK_MS) % PULSE.length]})` : 'rgba(128,128,128,0.22)'} backgroundColor={waiting ? `rgba(227,160,8,${(PULSE[Math.floor(now / TICK_MS) % PULSE.length] * 0.14).toFixed(3)})` : 'rgba(128,128,128,0.08)'} paddingX={2} paddingY={1} gap={1}>
+        </Box>,
+      sessions: !hidden.has('sessions') && <Box key="sessions" flexDirection="column" borderStyle="round" borderColor={waiting ? `rgba(227,160,8,${PULSE[Math.floor(now / TICK_MS) % PULSE.length]})` : 'rgba(128,128,128,0.22)'} backgroundColor={waiting ? `rgba(227,160,8,${(PULSE[Math.floor(now / TICK_MS) % PULSE.length] * 0.14).toFixed(3)})` : 'rgba(128,128,128,0.08)'} paddingX={2} paddingY={1} gap={1}>
           <Box gap={2} alignItems="center">
             <Button plain key="tsessions" onPress={() => toggle('sessions')}>
               <Text size="footnote" bold>Sessions {closed.has('sessions') ? '›' : '⌄'}</Text>
@@ -580,8 +598,8 @@ export const register: Register = on => {
             </Box>
           ))}
           {!closed.has('sessions') && sess.length === 0 && <Text size="caption" dimColor>No sessions in the last day.</Text>}
-        </Box>}
-        {!hidden.has('agents') && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        </Box>,
+      agents: !hidden.has('agents') && <Box key="agents" flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between">
             <Text size="footnote" bold>Agents</Text>
             <Text size="caption" dimColor>{summary(rows)}</Text>
@@ -596,7 +614,11 @@ export const register: Register = on => {
           {active.map(row)}
           {head('inactive', 'Inactive', inactive.length)}
           {!closed.has('inactive') && inactive.map(row)}
-        </Box>}
+        </Box>,
+    }
+    return (
+      <Box flexDirection="column" paddingX={1} paddingY={1} gap={1}>
+        {cardOrder().map(id => cards[id])}
       </Box>
     )
   })
