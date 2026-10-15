@@ -378,11 +378,11 @@ export const register: Register = on => {
           {dirtyStats(dirty).map(r => (
             <Box key={r.name} justifyContent="space-between" alignItems="center" gap={2}>
               <Box flexShrink={1} minWidth={0} gap={2}>
-                <Text size="caption" bold wrap="truncate-end">{r.name}</Text>
-                <Text size="caption" color="#22c55e" tabular>+{r.add}</Text>
-                <Text size="caption" color="#ef4444" tabular>-{r.del}</Text>
+                <Text size="footnote" bold wrap="truncate-end">{r.name}</Text>
+                <Text size="footnote" bold color="#4ade80" tabular>+{r.add}</Text>
+                <Text size="footnote" bold color="#f87171" tabular>-{r.del}</Text>
               </Box>
-              <Button key={'diff-' + r.name} onPress={() => { void showChanges($) }}><Text size="caption" bold>Show changes</Text></Button>
+              <Button key={'diff-' + r.name} onPress={() => { void showChanges($) }}><Text size="footnote" bold>Show changes</Text></Button>
             </Box>
           ))}
           {changesMsg !== '' && <Text size="caption" color="#e5736f" wrap="truncate-end">{changesMsg}</Text>}
