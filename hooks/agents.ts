@@ -224,8 +224,9 @@ export function expandTitle(rows: Row[], indexText: string): Row[] {
   })
 }
 
-export type CtxCat = { name: string; tokens: number; pct: number; dim: boolean; free: boolean }
-export type CtxFile = { name: string; type: string; tokens: number }
+export type CtxCat = { name: string; tokens: number; pct: number; dim: boolean; free: boolean; color: string; tip: Advice | null }
+export type Advice = { level: 'warn' | 'high'; tip: string }
+export type CtxFile = { name: string; type: string; tokens: number; tip: Advice | null }
 export type CtxView = { percent: number; used: number; max: number; cats: CtxCat[]; files: CtxFile[] }
 
 export function kTokens(n: number): string {
@@ -233,16 +234,39 @@ export function kTokens(n: number): string {
 }
 
 // Shapes the session's context breakdown for display; null when there is nothing to show.
+const CTX_PALETTE = ['#4a86e8', '#d97757', '#2fa36b', '#d9a21b', '#9b6bd6', '#2fb5c4', '#d9608a', '#8fb339', '#c9742f']
+
+// A quiet nudge per category: nothing while it is a sensible size, an amber or red tip with the fix when it is not.
+export function contextAdvice(name: string, tokens: number, max: number): Advice | null {
+  const rule = (warn: number, high: number, tip: string): Advice | null => tokens >= high ? { level: 'high', tip } : tokens >= warn ? { level: 'warn', tip } : null
+  if (/^memory files/i.test(name)) return rule(8000, 16000, 'Heavy. Trim CLAUDE.md and AGENTS.md; move detail into docs read on demand.')
+  if (/^mcp tools/i.test(name)) return rule(8000, 15000, 'Many tool definitions. Turn off MCP servers you rarely use.')
+  if (/^skills/i.test(name)) return rule(5000, 10000, 'Disable skills you do not use.')
+  if (/^custom agents/i.test(name)) return rule(3000, 6000, 'Remove agent definitions you do not use.')
+  if (/^messages/i.test(name) && max > 0) return rule(max * 0.5, max * 0.7, 'Long conversation. Compact to free room.')
+  return null
+}
+
+export function fileAdvice(tokens: number): Advice | null {
+  return tokens >= 8000 ? { level: 'high', tip: 'Very long. Keep it short and link to docs.' } : tokens >= 4000 ? { level: 'warn', tip: 'Long. Move detail into docs read on demand.' } : null
+}
+
 export function contextView(usage: any): CtxView | null {
   const b = usage?.context?.breakdown
   const percent = usage?.context?.percent ?? b?.percentage
   if (typeof percent !== 'number') return null
   const max = b?.maxTokens ?? usage?.context?.window ?? 0
   const cats: CtxCat[] = (b?.categories ?? []).filter((c: any) => c.tokens > 0).map((c: any) => ({
-    name: String(c.name), tokens: c.tokens, pct: max > 0 ? (c.tokens / max) * 100 : 0, dim: c.isDeferred === true || c.kind === 'deferred', free: c.kind === 'free',
+    name: String(c.name), tokens: c.tokens, pct: max > 0 ? (c.tokens / max) * 100 : 0, dim: c.isDeferred === true || c.kind === 'deferred', free: c.kind === 'free', color: '', tip: null,
   }))
+  // Every counted category gets its own colour so the bar and the rows match; the reserve and unused space stay quiet.
+  let n = 0
+  for (const c of cats) {
+    c.color = c.dim || c.free ? '#8a8a8555' : /autocompact/i.test(c.name) ? '#6b728099' : CTX_PALETTE[n++ % CTX_PALETTE.length]
+    c.tip = c.dim || c.free ? null : contextAdvice(c.name, c.tokens, max)
+  }
   const used = b?.totalTokens ?? usage?.context?.tokens ?? 0
-  const files: CtxFile[] = (b?.memoryFiles ?? []).filter((f: any) => f?.tokens > 0).map((f: any) => ({ name: String(f.path ?? '').split('/').pop() || String(f.path), type: String(f.type ?? ''), tokens: f.tokens })).sort((x: CtxFile, y: CtxFile) => y.tokens - x.tokens)
+  const files: CtxFile[] = (b?.memoryFiles ?? []).filter((f: any) => f?.tokens > 0).map((f: any) => ({ name: String(f.path ?? '').split('/').slice(-2).join('/'), type: String(f.type ?? ''), tokens: f.tokens, tip: fileAdvice(f.tokens) })).sort((x: CtxFile, y: CtxFile) => y.tokens - x.tokens)
   return { files, percent: Math.round(max > 0 && used > 0 ? (used / max) * 100 : percent), used, max, cats }
 }
 

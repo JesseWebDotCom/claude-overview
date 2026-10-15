@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { contextView, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { contextView, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -166,4 +166,15 @@ test('kTokens', () => {
 })
 test('compact pace captions are short', () => {
   expect(pace([{ name: 'Weekly', pct: 98, resetsAt: 0 } as any], 0, true).length).toBeLessThan(30)
+})
+
+test('contextAdvice nudges only oversized categories; every counted category has its own colour', () => {
+  expect(contextAdvice('Memory files', 3000, 200000)).toBeNull()
+  expect(contextAdvice('Memory files', 9000, 200000)?.level).toBe('warn')
+  expect(contextAdvice('MCP tools', 22400, 200000)?.level).toBe('high')
+  expect(contextAdvice('Messages', 120000, 200000)?.level).toBe('warn')
+  expect(contextAdvice('System tools', 99999, 200000)).toBeNull()
+  expect(fileAdvice(9400)?.level).toBe('high')
+  const v = contextView({ context: { percent: 50, breakdown: { totalTokens: 100, maxTokens: 200, categories: [{ name: 'A', tokens: 10 }, { name: 'B', tokens: 10 }, { name: 'C', tokens: 10 }, { name: 'D', tokens: 10 }, { name: 'E', tokens: 10 }] } } })
+  expect(new Set(v?.cats.map(c => c.color)).size).toBe(5)
 })

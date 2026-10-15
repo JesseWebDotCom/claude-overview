@@ -42,8 +42,6 @@ let ctx: CtxView | null = null
 let ctxMsg = ''
 let compactingSince = 0 // 0 = idle; -1 = stamp at next draw
 let compactFrom = 0
-const CTX_COLOR = ['#4a86e8', '#d97757', '#2fa36b', '#d9a21b']
-const ctxColor = (i: number, dim: boolean): string => dim ? '#8a8a8555' : CTX_COLOR[i] ?? '#8a8a85'
 // Under this many cells the pane uses shorter captions and one truncated line per row.
 const NARROW_COLS = 80
 
@@ -260,25 +258,31 @@ export const register: Register = on => {
           <Box flexDirection="column">
           <Box alignItems="center" gap={2}>
             <Box flexGrow={1} flexShrink={1} minWidth={0}>
-              {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map((c, i) => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${ctxColor(i, false)}"/>`; x += w; return r }).join('') })()}</svg>`} />}
+              {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map(c => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${c.color}"/>`; x += w; return r }).join('') })()}</svg>`} />}
             </Box>
             {compacting ? <Text size="caption" dimColor>Compact</Text> : <Button plain key="compact" onPress={() => { ctxMsg = ''; void compact($) }}><Text size="caption" bold>Compact</Text></Button>}
           </Box>
           <Text size="caption" dimColor wrap="truncate-end">{compacting ? 'Compacting' + '.'.repeat(1 + (Math.floor(now / 1000) % 3)) + ' summarizing the conversation' : ctxMsg !== '' ? ctxMsg : contextNote(ctx)}</Text>
           </Box>
           {!closed.has('context') && <Box flexDirection="column" gap={1}>
-            {ctx.cats.map((c, i) => (
-              <Box key={c.name} justifyContent="space-between" gap={2}>
-                <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor={c.dim || c.free} wrap="truncate-end"><Text color={ctxColor(i, c.dim || c.free)}>■</Text> {c.name}</Text></Box>
-                <Box flexShrink={0}><Text size="caption" dimColor tabular>{kTokens(c.tokens)}{c.dim ? '' : '  ' + c.pct.toFixed(1) + '%'}</Text></Box>
+            {ctx.cats.map(c => (
+              <Box key={c.name} flexDirection="column">
+                <Box justifyContent="space-between" gap={2}>
+                  <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor={c.dim || c.free} wrap="truncate-end"><Text color={c.color}>■</Text> {c.name}</Text></Box>
+                  <Box flexShrink={0}><Text size="caption" dimColor tabular>{c.tip && <Text color={c.tip.level === 'high' ? '#ef4444' : '#eab308'}>● </Text>}{kTokens(c.tokens)}{c.dim ? '' : '  ' + c.pct.toFixed(1) + '%'}</Text></Box>
+                </Box>
+                {c.tip && <Text size="caption" dimColor>{c.tip.tip}</Text>}
               </Box>
             ))}
             {ctx.files.length > 0 && <Box flexDirection="column">
               <Text size="caption" bold>Memory files</Text>
               {ctx.files.slice(0, 8).map(f => (
-                <Box key={f.name + f.type} justifyContent="space-between" gap={2}>
-                  <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{f.name}{f.type ? ' · ' + f.type : ''}</Text></Box>
-                  <Box flexShrink={0}><Text size="caption" dimColor tabular>{kTokens(f.tokens)}</Text></Box>
+                <Box key={f.name + f.type} flexDirection="column">
+                  <Box justifyContent="space-between" gap={2}>
+                    <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{f.name}</Text></Box>
+                    <Box flexShrink={0}><Text size="caption" dimColor tabular>{f.tip && <Text color={f.tip.level === 'high' ? '#ef4444' : '#eab308'}>● </Text>}{kTokens(f.tokens)}</Text></Box>
+                  </Box>
+                  {f.tip && <Text size="caption" dimColor>{f.tip.tip}</Text>}
                 </Box>
               ))}
             </Box>}
