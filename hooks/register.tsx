@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, liveParents } from './agents'
+import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, liveParents, remoteIds } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
@@ -52,6 +52,19 @@ const NARROW_COLS = 80
 // "Show changes" asks the host to open its own Changes pane, so the shortcut stays the host's to define; /diff is the fallback.
 let changesMsg = ''
 let prBusy = false
+// Sessions served over Remote Control, refreshed every RC_MS through the host's session tools.
+const RC_MS = 10000
+let rcIds = new Set<string>()
+let rcAt = 0
+async function refreshRc($: any, nowMs: number): Promise<void> {
+  if (nowMs - rcAt < RC_MS) return
+  rcAt = nowMs
+  try {
+    const ids = remoteIds(await $.tool.call({ tool: 'mcp__ccd_session_mgmt__list_sessions', limit: 100 } as never))
+    try { for (const id of remoteIds(await $.tool.call({ tool: 'mcp__ccd_session_mgmt__get_session', session_id: 'self' } as never))) ids.add(id) } catch { /* no self */ }
+    rcIds = ids
+  } catch { /* tool not reachable from the mod: show no pill */ }
+}
 // Opens a pull request for the folder's branch with gh; the message line shows the new URL or why it failed.
 async function createPr($: any, dir: string): Promise<void> {
   if (prBusy) return
@@ -199,6 +212,7 @@ done`
     sessOut = await run($, ['sh', '-c', sessScript], 6000)
     sessMe = me
     sess = sessionRows(sessOut, nowMs, me, liveNow(nowMs))
+    await refreshRc($, nowMs)
     await refreshDirty($, [...claude.map(r => r.cwd ?? ''), ...sess.map(x => x.cwd)], nowMs)
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
@@ -435,8 +449,9 @@ export const register: Register = on => {
                   <Text size="caption" dimColor tabular>{ageLabel(x.ageSec + drift)}</Text>
                 </Box>
               </Box>
-              {(x.model !== '' || x.detail !== '' || x.needs !== '') && (
+              {(x.model !== '' || x.detail !== '' || x.needs !== '' || rcIds.has(x.id)) && (
                 <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
+                  {rcIds.has(x.id) && <Box paddingX={1} flexShrink={0} backgroundColor="rgba(96,165,250,0.22)"><Text size="caption" color="#60a5fa" bold>RC</Text></Box>}
                   {x.model !== '' && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(x.model)}><Text size="caption" dimColor wrap="truncate-end">{x.model}</Text></Box>}
                   <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'blocked' ? '#d9b84a' : undefined} dimColor={x.kind !== 'blocked'} wrap="truncate-end">{x.kind === 'blocked' && x.needs !== '' ? x.needs : x.detail}</Text></Box>
                 </Box>

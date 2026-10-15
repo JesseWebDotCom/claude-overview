@@ -416,3 +416,21 @@ export function sessionSummary(rows: SessRow[]): string {
 export function liveParents(rows: Row[]): Set<string> {
   return new Set(rows.filter(r => r.parent && (r.state === 'working' || r.state === 'problem')).map(r => r.parent as string))
 }
+
+// Session ids with Remote Control on, from a list_sessions / get_session tool result (a JSON array or object, or text holding one).
+export function remoteIds(result: unknown): Set<string> {
+  const out = new Set<string>()
+  const walk = (v: unknown): void => {
+    if (typeof v === 'string') { try { walk(JSON.parse(v)) } catch { /* not JSON */ } return }
+    if (Array.isArray(v)) { v.forEach(walk); return }
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>
+      if (typeof o.sessionId === 'string' && (o.remoteControlActive === true || o.remoteControlState === 'on')) out.add(o.sessionId)
+      if (o.content) walk(o.content)
+      if (typeof o.text === 'string') walk(o.text)
+      if (o.result) walk(o.result)
+    }
+  }
+  walk(result)
+  return out
+}

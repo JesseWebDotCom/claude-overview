@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -301,4 +301,12 @@ test('a session with a working agent is active, ranked above idle and below bloc
   const r = sessionRows(out, now, '', live)
   expect(r.map(x => x.id + ':' + x.kind)).toEqual(['l3:blocked', 'l2:active', 'l1:idle'])
   expect(sessionSummary(r)).toBe('1 blocked · 1 active · 1 idle')
+})
+
+test('remoteIds reads remote-control sessions from tool results', () => {
+  const list = JSON.stringify([{ sessionId: 'local_a', remoteControlActive: true }, { sessionId: 'local_b', remoteControlActive: false }])
+  expect([...remoteIds(list)]).toEqual(['local_a'])
+  expect([...remoteIds({ content: [{ type: 'text', text: list }] })]).toEqual(['local_a'])
+  expect([...remoteIds({ sessionId: 'local_c', remoteControlState: 'on' })]).toEqual(['local_c'])
+  expect(remoteIds('nope').size).toBe(0)
 })
