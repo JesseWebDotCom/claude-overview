@@ -405,7 +405,10 @@ export const register: Register = on => {
           </Box>}
         </Box>}
         {dirtyStats(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
-          <Text size="footnote" bold>Changes</Text>
+          <Box justifyContent="space-between" alignItems="center">
+            <Text size="footnote" bold>Changes</Text>
+            <Button key="diff-open" onPress={() => { void showChanges($) }}><Text size="footnote" bold>Open</Text></Button>
+          </Box>
           {dirtyStats(dirty).map(r => (
             <Box key={r.name} justifyContent="space-between" alignItems="center" gap={2}>
               <Box flexShrink={1} minWidth={0} gap={2}>
@@ -413,10 +416,7 @@ export const register: Register = on => {
                 <Text size="footnote" bold color="#4ade80" tabular>+{r.add}</Text>
                 <Text size="footnote" bold color="#f87171" tabular>-{r.del}</Text>
               </Box>
-              <Box gap={2}>
-                <Button key={'diff-' + r.name} onPress={() => { void showChanges($) }}><Text size="footnote" bold>Show</Text></Button>
-                <Button key={'pr-' + r.name} onPress={() => { void createPr($, r.path) }}><Text size="footnote" bold>Create PR</Text></Button>
-              </Box>
+              <Button key={'pr-' + r.name} onPress={() => { void createPr($, r.path) }}><Text size="footnote" bold>Create PR</Text></Button>
             </Box>
           ))}
           {changesMsg !== '' && <Text size="caption" color="#e5736f" wrap="truncate-end">{changesMsg}</Text>}
