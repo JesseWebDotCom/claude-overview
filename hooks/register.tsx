@@ -343,6 +343,10 @@ export const register: Register = on => {
             </Box>}
           </Box>}
         </Box>}
+        {dirtyBrief(dirty) !== '' && <Box borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={0} gap={1}>
+          <Text size="footnote" color="#e3a008" bold>±</Text>
+          <Box flexShrink={1} minWidth={0}><Text size="caption" wrap="truncate-end">{dirtyBrief(dirty).replace('± uncommitted · ', '')}</Text></Box>
+        </Box>}
         <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
             <Button plain key="tsessions" onPress={() => toggle('sessions')}>
