@@ -49,6 +49,16 @@ let compactFrom = 0
 // Under this many cells the pane uses shorter captions and one truncated line per row.
 const NARROW_COLS = 80
 
+// "Show changes" asks the host to open its own Changes pane, so the shortcut stays the host's to define; /diff is the fallback.
+let changesMsg = ''
+async function showChanges($: any): Promise<void> {
+  changesMsg = ''
+  try { await $.tool.call({ tool: 'mcp__ccd_view__show_pane', pane: 'diff', diff_scope: 'all' } as never) } catch (first) {
+    try { await $.command.run({ command: 'diff' }) } catch (err) { changesMsg = 'Could not open Changes: ' + String((err as any)?.message ?? first).slice(0, 80) }
+  }
+  void $.ui.invalidate('ui.render')
+}
+
 const COMPACT_MAX_MS = 240000
 async function compact($: any): Promise<void> {
   compactFrom = ctx?.used ?? 0
@@ -372,9 +382,10 @@ export const register: Register = on => {
                 <Text size="caption" color="#22c55e" tabular>+{r.add}</Text>
                 <Text size="caption" color="#ef4444" tabular>-{r.del}</Text>
               </Box>
-              <Button key={'diff-' + r.name} onPress={() => { void $.command.run({ command: 'diff' }) }}><Text size="caption" bold>Show changes</Text></Button>
+              <Button key={'diff-' + r.name} onPress={() => { void showChanges($) }}><Text size="caption" bold>Show changes</Text></Button>
             </Box>
           ))}
+          {changesMsg !== '' && <Text size="caption" color="#e5736f" wrap="truncate-end">{changesMsg}</Text>}
         </Box>}
         <Box flexDirection="column" borderStyle="round" borderColor={waiting ? `rgba(227,160,8,${PULSE[Math.floor(now / TICK_MS) % PULSE.length]})` : 'rgba(128,128,128,0.22)'} backgroundColor={waiting ? `rgba(227,160,8,${(PULSE[Math.floor(now / TICK_MS) % PULSE.length] * 0.14).toFixed(3)})` : 'rgba(128,128,128,0.08)'} paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
