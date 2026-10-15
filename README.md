@@ -45,9 +45,13 @@ The Context card sits under System. Its first line holds the title, the bar and 
 
 ## System: is the machine healthy
 
-The System card sits above Context. Collapsed, it is one line: an icon (chip, memory stick, disk, graphics card) and a percent each for CPU, memory, disk and GPU, the icon green below 80%, amber from 80% and red from 92% (CPU 95%, disk 85% and 95%). Click the title to see each meter with its bar and numbers: cores in use, gigabytes of memory and disk, and the GPU model (plus memory and temperature when `nvidia-smi` is present). CPU and Memory each list their top five processes (click the name to fold them away), grouped by program name, so you can see what is eating the machine. A Mac that macOS has slowed down for heat says so. It is sampled every 5 seconds with `ps`, `vm_stat`, `df` and `ioreg` on a Mac, and `/proc` and `nvidia-smi` on Linux, so nothing needs installing. A meter whose source is missing is left out rather than shown as zero.
+The System card is the first card in the pane. Collapsed, it is one line: an icon (chip, memory stick, disk, graphics card) and a percent each for CPU, memory, disk and GPU, the icon green below 80%, amber from 80% and red from 92% (CPU 95%, disk 85% and 95%). Click the title to see each meter with its bar and numbers: cores in use, gigabytes of memory and disk, and the GPU model (plus memory and temperature when `nvidia-smi` is present). CPU and Memory each list their top five processes (click the name to fold them away), grouped by program name, so you can see what is eating the machine. A Mac that macOS has slowed down for heat says so. It is sampled every 5 seconds with `ps`, `vm_stat`, `df` and `ioreg` on a Mac, and `/proc` and `nvidia-smi` on Linux, so nothing needs installing. A meter whose source is missing is left out rather than shown as zero.
+
+<img src="assets/overview-cards.png" alt="System expanded with top processes, then compact Context, Sessions and Agents cards" width="450">
 
 ## Show or hide cards
+
+Cards run in a fixed order: System, Subscriptions, Context, Changes, Sessions, Agents. Context and Sessions are two lines each, with the bar beside the title. In Sessions the second line shows the waiting state on the left and the summary on the right.
 
 Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, system, context, changes, sessions, agents; `all` works too). The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
 

@@ -84,7 +84,7 @@ echo "topcpu=$(sort -t'|' -k2 -nr /tmp/ov-top.$$ | head -5 | awk -F'|' '$2>0{pri
 echo "topmem=$(sort -t'|' -k3 -nr /tmp/ov-top.$$ | head -5 | awk -F'|' '{printf "%s%s:%s", s, $1, $3; s=";"}')"
 rm -f /tmp/ov-top.$$`
 // Cards the person hid, by id; read from the plugin's /config toggles every poll.
-const CARDS: [string, string][] = [['subscriptions', 'Subscriptions'], ['system', 'System'], ['context', 'Context'], ['changes', 'Changes'], ['sessions', 'Sessions'], ['agents', 'Agents']]
+const CARDS: [string, string][] = [['system', 'System'], ['subscriptions', 'Subscriptions'], ['context', 'Context'], ['changes', 'Changes'], ['sessions', 'Sessions'], ['agents', 'Agents']]
 const hidden = new Set<string>()
 // Saved in ~/.claude/overview.json as {"hidden":["agents"]}; edit it by hand or use `/overview hide agents`.
 const CFG = '$HOME/.claude/overview.json'
@@ -421,28 +421,6 @@ export const register: Register = on => {
     )
     return (
       <Box flexDirection="column" paddingX={1} paddingY={1} gap={1}>
-        {!hidden.has('subscriptions') && (claudeLim.length > 0 || codexLim.length > 0) && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
-          <Text size="footnote" bold>Subscriptions</Text>
-          {[['Claude', claudeLim], ['Codex', codexLim]].map(([who, list]: any) => {
-            if (list.length === 0) return null
-            const bars = list.slice(0, 2).map((l: Limit, i: number) =>
-              `<rect y="${i * 6}" width="700" height="4" rx="2" fill="#484f58" fill-opacity="0.5"/><rect y="${i * 6}" width="${Math.max(4, Math.min(100, l.pct) * 7)}" height="4" rx="2" fill="url(#h)"/>`).join('')
-            const text = list.slice(0, 2).map((l: Limit) => (l.name === '5-hour' ? '5h' : l.name === 'Weekly' ? 'Wk' : l.name) + ' ' + Math.round(l.pct) + '%').join(' · ')
-            return (
-              <Box key={who} flexDirection="column">
-                <Box justifyContent="space-between" gap={2}>
-                  <Box gap={0} alignItems="center">
-                    <Svg width={14} height={14} alt={who} source={ICON[who]} />
-                    <Text size="footnote" bold> {who}</Text>
-                  </Box>
-                  <Text size="caption" dimColor tabular>{text}</Text>
-                </Box>
-                <Svg height={10} alt={who + ' usage'} source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 10" width="700" height="10" preserveAspectRatio="none"><defs><linearGradient id="h" gradientUnits="userSpaceOnUse" x1="0" x2="700" y1="0" y2="0"><stop offset="0" stop-color="#22c55e"/><stop offset="0.5" stop-color="#eab308"/><stop offset="0.75" stop-color="#f97316"/><stop offset="1" stop-color="#ef4444"/></linearGradient></defs>${bars}</svg>`} />
-                {pace(list, Math.floor(now / 1000), narrow) !== '' && <Text size="caption" dimColor wrap="truncate-end">{pace(list, Math.floor(now / 1000), narrow)}</Text>}
-              </Box>
-            )
-          })}
-        </Box>}
         {!hidden.has('system') && sysv && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" alignItems="center" gap={2}>
             <Button plain key="tsystem" onPress={() => toggle('system')}>
@@ -470,6 +448,28 @@ export const register: Register = on => {
             </Box>
           ))}
           {!closed.has('system') && sysv.note !== '' && <Text size="caption" color="#eab308" wrap="truncate-end">{sysv.note}</Text>}
+        </Box>}
+        {!hidden.has('subscriptions') && (claudeLim.length > 0 || codexLim.length > 0) && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+          <Text size="footnote" bold>Subscriptions</Text>
+          {[['Claude', claudeLim], ['Codex', codexLim]].map(([who, list]: any) => {
+            if (list.length === 0) return null
+            const bars = list.slice(0, 2).map((l: Limit, i: number) =>
+              `<rect y="${i * 6}" width="700" height="4" rx="2" fill="#484f58" fill-opacity="0.5"/><rect y="${i * 6}" width="${Math.max(4, Math.min(100, l.pct) * 7)}" height="4" rx="2" fill="url(#h)"/>`).join('')
+            const text = list.slice(0, 2).map((l: Limit) => (l.name === '5-hour' ? '5h' : l.name === 'Weekly' ? 'Wk' : l.name) + ' ' + Math.round(l.pct) + '%').join(' · ')
+            return (
+              <Box key={who} flexDirection="column">
+                <Box justifyContent="space-between" gap={2}>
+                  <Box gap={0} alignItems="center">
+                    <Svg width={14} height={14} alt={who} source={ICON[who]} />
+                    <Text size="footnote" bold> {who}</Text>
+                  </Box>
+                  <Text size="caption" dimColor tabular>{text}</Text>
+                </Box>
+                <Svg height={10} alt={who + ' usage'} source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 10" width="700" height="10" preserveAspectRatio="none"><defs><linearGradient id="h" gradientUnits="userSpaceOnUse" x1="0" x2="700" y1="0" y2="0"><stop offset="0" stop-color="#22c55e"/><stop offset="0.5" stop-color="#eab308"/><stop offset="0.75" stop-color="#f97316"/><stop offset="1" stop-color="#ef4444"/></linearGradient></defs>${bars}</svg>`} />
+                {pace(list, Math.floor(now / 1000), narrow) !== '' && <Text size="caption" dimColor wrap="truncate-end">{pace(list, Math.floor(now / 1000), narrow)}</Text>}
+              </Box>
+            )
+          })}
         </Box>}
         {ctx && !hidden.has('context') && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box gap={2} alignItems="center">
