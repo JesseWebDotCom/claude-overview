@@ -218,16 +218,8 @@ test('claudeRows and sessionRows carry the working folder', () => {
   expect(s[0].cwd).toBe('/Users/x/app')
 })
 
-test('dirtyBrief lists the dirtiest folders, three at most', async () => {
-  const { dirtyBrief } = await import('../hooks/register')
-  const m = new Map([['/a/home', { n: 8 }], ['/a/wt-one', { n: 3 }], ['/a/clean', { n: 0 }], ['/a/b', { n: 1 }], ['/a/c', { n: 2 }]])
-  expect(dirtyBrief(m)).toBe('± uncommitted · home 8 · wt-one 3 · c 2 · +1 more')
-  expect(dirtyBrief(new Map([['/a/x', { n: 0 }]]))).toBe('')
-})
-
-test('dirtyList and dirtyFiles give the per-folder rows and the total', async () => {
-  const { dirtyList, dirtyFiles } = await import('../hooks/register')
+test('dirtyList gives the per-folder rows, dirtiest first', async () => {
+  const { dirtyList } = await import('../hooks/register')
   const m = new Map([['/a/home', { n: 8 }], ['/a/x', { n: 0 }], ['/a/bot', { n: 3 }]])
   expect(dirtyList(m)).toEqual([['home', 8], ['bot', 3]])
-  expect(dirtyFiles(m)).toBe(11)
 })

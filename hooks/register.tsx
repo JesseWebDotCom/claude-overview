@@ -72,31 +72,21 @@ async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
 }
 
 // Uncommitted-change counts per folder, refreshed at most every DIRTY_MS so a big repo is not scanned every poll.
-// `own` is true for a linked worktree: only there does a change belong to the session in it, so only there does a row get the ± mark.
 const DIRTY_MS = 10000
-const dirty = new Map<string, { n: number; own: boolean; at: number }>()
-export const dirtyOf = (cwd?: string): number => { const d = cwd ? dirty.get(cwd) : undefined; return d?.own ? d.n : 0 }
-// The line pinned under the prompt: every folder with changes, biggest first, at most three.
-export function dirtyBrief(map: Map<string, { n: number }>): string {
-  const items = [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n)
-  if (items.length === 0) return ''
-  const shown = items.slice(0, 3).map(([d, v]) => (d.split('/').pop() || d) + ' ' + v.n)
-  return '± uncommitted · ' + shown.join(' · ') + (items.length > 3 ? ' · +' + (items.length - 3) + ' more' : '')
-}
+const dirty = new Map<string, { n: number; at: number }>()
+// The card rows: every folder with changes, biggest first, at most six.
 export const dirtyList = (map: Map<string, { n: number }>): [string, number][] =>
   [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => [d.split('/').pop() || d, v.n])
-export const dirtyFiles = (map: Map<string, { n: number }>): number => [...map.values()].reduce((t, v) => t + v.n, 0)
 async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
   const want = [...new Set(cwds.filter(Boolean))].filter(d => nowMs - (dirty.get(d)?.at ?? 0) >= DIRTY_MS).slice(0, 24)
   if (want.length > 0) {
-    const script = 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); g=$(git -C "$d" rev-parse --absolute-git-dir 2>/dev/null); c=$(git -C "$d" rev-parse --path-format=absolute --git-common-dir 2>/dev/null); o=0; [ -n "$g" ] && [ "$g" != "$c" ] && o=1; echo "$d|||$n|||$o"; done'
+    const script = 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); echo "$d|||$n"; done'
     const out = await run($, ['sh', '-c', script, 'sh', ...want], 8000)
     for (const line of out.split('\n')) {
-      const [d, n, o] = line.split('|||')
-      if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, own: o === '1', at: nowMs })
+      const [d, n] = line.split('|||')
+      if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, at: nowMs })
     }
   }
-  try { const t = dirtyBrief(new Map([...dirty.entries()].filter(([d]) => cwds.includes(d)))); $.ui.status(t === '' ? undefined : t) } catch { /* no status line on this surface */ }
 }
 
 export async function poll($: any): Promise<void> {
@@ -268,7 +258,6 @@ export const register: Register = on => {
         {(r.model || r.detail !== '') && (
           <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
             {r.model && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(r.model)}><Text size="caption" dimColor wrap="truncate-end">{r.model}</Text></Box>}
-            {dirtyOf(r.cwd) > 0 && <Text size="caption" color="#e3a008" bold>±</Text>}
             {sub(r) !== '' && <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{dotted(sub(r), r.state === 'working', Math.floor(now / TICK_MS))}</Text></Box>}
           </Box>
         )}
@@ -322,7 +311,7 @@ export const register: Register = on => {
           </Box>
           <Text size="caption" dimColor wrap="truncate-end">{compacting ? 'Compacting' + '.'.repeat(1 + (Math.floor(now / 1000) % 3)) + ' summarizing the conversation' : ctxMsg !== '' ? ctxMsg : contextNote(ctx)}</Text>
           </Box>
-          {!closed.has('context') && <Box flexDirection="column" gap={1}>
+          {!closed.has('context') && <Box flexDirection="column">
             {ctx.cats.map(c => (
               <Box key={c.name} flexDirection="column">
                 <Box justifyContent="space-between" gap={2}>
@@ -346,7 +335,7 @@ export const register: Register = on => {
             </Box>}
           </Box>}
         </Box>}
-        {dirtyBrief(dirty) !== '' && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        {dirtyList(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
             <Text size="footnote" bold>Uncommitted changes</Text>
           </Box>
@@ -389,7 +378,6 @@ export const register: Register = on => {
               {(x.model !== '' || x.detail !== '' || x.needs !== '') && (
                 <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
                   {x.model !== '' && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(x.model)}><Text size="caption" dimColor wrap="truncate-end">{x.model}</Text></Box>}
-                  {dirtyOf(x.cwd) > 0 && <Text size="caption" color="#e3a008" bold>±</Text>}
                   <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'blocked' ? '#d9b84a' : undefined} dimColor={x.kind !== 'blocked'} wrap="truncate-end">{x.kind === 'blocked' && x.needs !== '' ? x.needs : x.detail}</Text></Box>
                 </Box>
               )}
