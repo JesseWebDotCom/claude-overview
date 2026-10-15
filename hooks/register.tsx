@@ -307,29 +307,33 @@ export const register: Register = on => {
             <Button plain key="tsessions" onPress={() => toggle('sessions')}>
               <Text size="footnote" bold>Sessions {closed.has('sessions') ? '›' : '⌄'}</Text>
             </Button>
-            <Text size="caption" color={sess.some(x => x.kind === 'asking') ? '#e3a008' : undefined} dimColor={!sess.some(x => x.kind === 'asking')}>{sessionSummary(sess)}</Text>
+            <Text size="caption" color={sess.some(x => x.kind === 'blocked') ? '#e3a008' : undefined} dimColor={!sess.some(x => x.kind === 'blocked')}>{sessionSummary(sess)}</Text>
           </Box>
+          {sess.length > 0 && <Svg height={4} alt="Sessions by state" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none">${sess.map((x, i) => `<rect x="${i * (700 / sess.length) + 1}" width="${Math.max(1, 700 / sess.length - 2)}" height="4" rx="2" fill="${x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#2fa36b' : '#8a8a85'}" fill-opacity="${x.kind === 'idle' ? 0.4 : 1}"/>`).join('')}</svg>`} />}
+          {closed.has('sessions') && sess.filter(x => x.kind === 'blocked').slice(0, 2).map(x => (
+            <Text key={x.id} size="caption" color="#d9b84a" wrap="truncate-end">{x.title}: {x.needs !== '' ? x.needs : x.detail}</Text>
+          ))}
           {!closed.has('sessions') && sess.slice(0, 8).map(x => (
             <Box key={x.id} flexDirection="column">
               <Box justifyContent="space-between" gap={2}>
                 <Box flexShrink={1} minWidth={0} gap={1}>
-                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'asking' ? '#e3a008' : x.kind === 'active' ? '#2fa36b' : '#8a8a85'}>{x.kind === 'recent' ? '□' : '■'}</Text></Box>
+                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#2fa36b' : '#8a8a85'}>{x.kind === 'idle' ? '□' : '■'}</Text></Box>
                   <Box flexShrink={1} minWidth={0}><Text size="footnote" bold wrap="truncate-end">{x.title}</Text></Box>
                 </Box>
                 <Box gap={1} flexShrink={0}>
-                  {x.kind === 'asking' && <Text size="caption" color="#e3a008" bold>asking</Text>}
+                  {x.kind === 'blocked' && <Text size="caption" color="#e3a008" bold>blocked</Text>}
                   <Text size="caption" dimColor tabular>{ageLabel(x.ageSec + drift)}</Text>
                 </Box>
               </Box>
               {(x.model !== '' || x.detail !== '' || x.needs !== '') && (
                 <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
                   {x.model !== '' && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(x.model)}><Text size="caption" dimColor wrap="truncate-end">{x.model}</Text></Box>}
-                  <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'asking' ? '#d9b84a' : undefined} dimColor={x.kind !== 'asking'} wrap="truncate-end">{x.kind === 'asking' && x.needs !== '' ? x.needs : x.detail}</Text></Box>
+                  <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'blocked' ? '#d9b84a' : undefined} dimColor={x.kind !== 'blocked'} wrap="truncate-end">{x.kind === 'blocked' && x.needs !== '' ? x.needs : x.detail}</Text></Box>
                 </Box>
               )}
             </Box>
           ))}
-          {!closed.has('sessions') && sess.length === 0 && <Text size="caption" dimColor>No recent sessions.</Text>}
+          {!closed.has('sessions') && sess.length === 0 && <Text size="caption" dimColor>No sessions in the last day.</Text>}
         </Box>
         <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between">

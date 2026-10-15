@@ -281,7 +281,7 @@ export function contextNote(c: CtxView): string {
 }
 
 // Desktop sessions (one json per session): what is asking you, what is running, what ran lately.
-export type SessKind = 'asking' | 'active' | 'recent'
+export type SessKind = 'blocked' | 'active' | 'idle'
 export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number }
 
 const unesc = (s: string): string => s.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\./g, '').trim()
@@ -298,14 +298,14 @@ export function sessionRows(out: string, nowMs: number): SessRow[] {
     const ageSec = Math.max(0, (nowMs - ms) / 1000)
     const asking = cat === 'blocked'
     if (ageSec > (asking ? ASKING_SEC : RECENT_SEC)) continue
-    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'asking' : ageSec < ACTIVE_SEC ? 'active' : 'recent', detail: unesc(detail), needs: unesc(needs), model: modelName(model ?? ''), ageSec })
+    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : ageSec < ACTIVE_SEC ? 'active' : 'idle', detail: unesc(detail), needs: unesc(needs), model: modelName(model ?? ''), ageSec })
   }
-  const rank: Record<SessKind, number> = { asking: 0, active: 1, recent: 2 }
+  const rank: Record<SessKind, number> = { blocked: 0, active: 1, idle: 2 }
   return rows.sort((p, q) => rank[p.kind] - rank[q.kind] || p.ageSec - q.ageSec)
 }
 
 export function sessionSummary(rows: SessRow[]): string {
   const n = (k: SessKind) => rows.filter(r => r.kind === k).length
-  const parts = [[n('asking'), 'asking'], [n('active'), 'active'], [n('recent'), 'recent']].filter(([c]) => (c as number) > 0).map(([c, w]) => c + ' ' + w)
+  const parts = [[n('blocked'), 'blocked'], [n('active'), 'active'], [n('idle'), 'idle']].filter(([c]) => (c as number) > 0).map(([c, w]) => c + ' ' + w)
   return parts.join(' · ') || 'none'
 }

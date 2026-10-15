@@ -187,5 +187,5 @@ test('sessionRows ranks asking first, then active, then recent; drops archived a
   expect(r.map(x => x.id)).toEqual(['l3', 'l2', 'l1'])
   expect(r[0].needs).toBe('Which database "main"?')
   expect(r[0].model).toBe('Sonnet 5.5')
-  expect(sessionSummary(r)).toBe('1 asking · 1 active · 1 recent')
+  expect(sessionSummary(r)).toBe('1 blocked · 1 active · 1 idle')
 })
