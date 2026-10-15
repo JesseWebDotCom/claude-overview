@@ -55,7 +55,7 @@ test('sorting, labels and summary', () => {
     { key: 'a', kind: 'tmux', name: 'a', state: 'idle', detail: '', ageSec: 5 },
     { key: 'b', kind: 'tmux', name: 'b', state: 'needs', detail: '', ageSec: 5 },
   ])
-  expect(rows[0].key).toBe('b')
+  expect(rows.map(r => r.key)).toEqual(['a', 'b'])
   expect(summary(rows)).toBe('1 waiting on you · 1 idle')
   expect(ageLabel(125)).toBe('2m 05s')
   expect(ageLabel(1500)).toBe('25m')
@@ -211,7 +211,7 @@ test('contextAdvice nudges only oversized categories; every counted category has
   expect(new Set(v?.cats.map(c => c.color)).size).toBe(5)
 })
 
-test('sessionRows ranks asking first, then active, then recent; drops archived and old', () => {
+test('sessionRows sorts alphabetically; drops archived and old', () => {
   const now = 1_000_000_000_000
   const line = (ageMin: number, archived: string, title: string, cat: string, detail: string, needs: string, id: string) => [now - ageMin * 60000, archived, title, cat, detail, needs, 'claude-sonnet-5-5', id].join('|||')
   const out = [line(200, 'false', 'Old chat', 'completed', 'done', '', 'l1'), line(1, 'false', 'Live', 'review_ready', 'building', '', 'l2'), line(900, 'false', 'Asks', 'blocked', 'q', 'Which database \\"main\\"?', 'l3'), line(5, 'true', 'Gone', 'completed', '', '', 'l4'), line(3000, 'false', 'Stale', 'completed', '', '', 'l5')].join('\n')
@@ -227,7 +227,14 @@ test('sessionRows nests sub-sessions under the session that started them', () =>
   const line = (ageMin: number, title: string, cat: string, id: string, spawn: string) => [now - ageMin * 60000, 'false', title, cat, '', '', 'claude-sonnet-5-5', id, spawn].join('|||')
   const out = [line(1, 'Quiet', 'completed', 'a', ''), line(30, 'Parent', 'completed', 'p', ''), line(40, 'Child', 'blocked', 'c', 'p'), line(2, 'Orphan', 'completed', 'o', 'gone')].join('\n')
   const r = sessionRows(out, now)
-  expect(r.map(x => x.id + ':' + x.depth)).toEqual(['p:0', 'c:1', 'a:0', 'o:0'])
+  expect(r.map(x => x.id + ':' + x.depth)).toEqual(['o:0', 'p:0', 'c:1', 'a:0'])
+})
+
+test('sessionRows keeps alphabetical order whatever the state or age, children after their parent', () => {
+  const now = 1_000_000_000_000
+  const line = (ageMin: number, title: string, cat: string, id: string, spawn: string) => [now - ageMin * 60000, 'false', title, cat, '', '', 'claude-sonnet-5-5', id, spawn].join('|||')
+  const out = [line(1, 'zeta', 'blocked', 'z', ''), line(90, 'Beta', 'completed', 'b', ''), line(5, 'delta', 'completed', 'd', 'b'), line(50, 'Charlie', 'blocked', 'c', 'b')].join('\n')
+  expect(sessionRows(out, now).map(x => x.id + ':' + x.depth)).toEqual(['b:0', 'c:1', 'd:1', 'z:0'])
 })
 
 test('brief keeps one short sentence', () => {

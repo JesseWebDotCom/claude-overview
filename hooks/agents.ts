@@ -205,8 +205,9 @@ export function overlayRuns(rows: Row[], out: string): Row[] {
   })
 }
 
-const ORDER: Record<State, number> = { needs: 0, problem: 1, working: 2, idle: 3, done: 4 }
-export const sortRows = (rows: Row[]): Row[] => [...rows].sort((a, b) => ORDER[a.state] - ORDER[b.state] || (a.ageSec ?? 1e9) - (b.ageSec ?? 1e9) || a.name.localeCompare(b.name))
+// Alphabetical, so rows never swap places as states and ages change; the pane nests children under their parent in this order.
+const byName = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true })
+export const sortRows = (rows: Row[]): Row[] => [...rows].sort((a, b) => byName(a.name, b.name) || a.key.localeCompare(b.key))
 
 export function ageLabel(sec: number | null): string {
   if (sec === null) return ''
@@ -389,20 +390,17 @@ export function sessionRows(out: string, nowMs: number, currentCli = '', live: S
     if (ageSec > (asking ? ASKING_SEC : RECENT_SEC)) continue
     rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : live.has((cli ?? '').trim()) ? 'active' : 'idle', detail: brief(unesc(detail)), needs: brief(unesc(needs)), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli, cwd: (cwd ?? '').trim() })
   }
-  const rank: Record<SessKind, number> = { blocked: 0, active: 1, idle: 2 }
   const byId = new Map(rows.map(r => [r.id, r]))
   const rootOf = (r: SessRow): SessRow => { let cur = r; for (let n = 0; n < 8; n++) { const p = byId.get(cur.spawn); if (!p || p === cur) break; cur = p } return cur }
   // A session that started others stays with them: a tree ranks by its most urgent member, children follow their parent.
   const trees = new Map<string, SessRow[]>()
   for (const r of rows) { const k = rootOf(r).id; trees.set(k, [...(trees.get(k) ?? []), r]) }
-  const best = (m: SessRow[]) => Math.min(...m.map(r => rank[r.kind]))
-  const recency = (m: SessRow[]) => Math.min(...m.map(r => r.ageSec))
   const res: SessRow[] = []
   const put = (r: SessRow, depth: number, members: SessRow[]) => {
     res.push({ ...r, depth })
-    for (const c of members.filter(m => m.spawn === r.id && m !== r).sort((p, q) => rank[p.kind] - rank[q.kind] || p.ageSec - q.ageSec)) put(c, depth + 1, members)
+    for (const c of members.filter(m => m.spawn === r.id && m !== r).sort((p, q) => byName(p.title, q.title) || p.id.localeCompare(q.id))) put(c, depth + 1, members)
   }
-  for (const [k, members] of [...trees.entries()].sort((p, q) => best(p[1]) - best(q[1]) || recency(p[1]) - recency(q[1]))) put(byId.get(k)!, 0, members)
+  for (const [k, members] of [...trees.entries()].sort((p, q) => byName(byId.get(p[0])!.title, byId.get(q[0])!.title) || p[0].localeCompare(q[0]))) put(byId.get(k)!, 0, members)
   return res
 }
 

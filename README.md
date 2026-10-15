@@ -59,6 +59,7 @@ A failed Open or Create PR shows its reason in red under the rows. The card disa
 
 ## Good to know
 
+- Agents and sessions are listed alphabetically, each parent followed by its children, so rows never jump around as their state changes. Colour and the amber Sessions border show what is waiting on you.
 - Codex and Claude usage appear only when there is a reading. No Codex, no Codex card.
 - A tmux session started by `wt.sh` (for example a Codex run) shows under the Claude session that owns it, with its run state (FAILED, DIED, TIMEOUT turn the row red). This reads `data-scratch/sessions/*.json` in your repos.
 - Everything is read from your own machine (tmux, `~/.claude`, `~/.codex`). Nothing is sent anywhere.
