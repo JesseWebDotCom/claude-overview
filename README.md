@@ -53,7 +53,7 @@ The card is collapsed by default. Click the title to list one row per folder, bi
 
 <img src="assets/changes-expanded.png" alt="Changes card expanded" width="450">
 
- A failed Open or Create PR shows its reason in red under the rows. The card disappears once everything is committed and pushed. It checks with `git`, at most every 10 seconds, and never takes a git lock. The same summary is pinned in the status line under the prompt.
+A failed Open or Create PR shows its reason in red under the rows. The card disappears once everything is committed and pushed. It checks with `git`, at most every 10 seconds, and never takes a git lock. The same summary is pinned in the status line under the prompt.
 
 <img src="assets/changes-status.png" alt="Changes summary in the status line" width="400">
 
