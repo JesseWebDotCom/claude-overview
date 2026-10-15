@@ -57,6 +57,13 @@ test('subagent files become rows under their session, working only while the tra
   ])
 })
 
+test('a subagent stuck in a long tool call stays working; a stale one with no pending tool does not', () => {
+  const f = (n: string) => `/Users/me/.claude/projects/-Users-me-p/sess1/subagents/agent-${n}.jsonl`
+  const out = [`700 ${f('a1')}|||Runs check|||claude-sonnet-5-5|||tool Bash bash scripts/check.sh|||0`, `700 ${f('a2')}|||Stale thinker|||claude-sonnet-5-5|||think|||0`, `100 ${f('a3')}|||Long dead|||claude-sonnet-5-5|||tool Bash x|||0`, `700 ${f('a4')}|||Finished|||claude-sonnet-5-5|||tool Bash x|||1`].join('\n')
+  const by = Object.fromEntries(subagentRows(out, 1000).map(r => [r.name, r.state]))
+  expect(by).toEqual({ 'Runs check': 'working', 'Stale thinker': 'done', 'Long dead': 'done', Finished: 'done' })
+})
+
 test('typeOf tells Claude (subagents too), Codex, local coder and other tmux apart', () => {
   const r = (kind: any, name: string, detail = '') => ({ key: name, kind, name, state: 'idle', detail, ageSec: 1 }) as any
   expect(typeOf(r('claude', 'ALPHA'))).toBe('claude')

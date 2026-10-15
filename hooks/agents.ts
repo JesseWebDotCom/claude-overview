@@ -120,6 +120,9 @@ export function claudeRows(out: string, nowSec: number, skipId = '', links = '')
 }
 
 // Lines of `<mtime> <path>|||<description>` for ~/.claude/projects/<dir>/<session>/subagents/<agent>.jsonl
+// A long tool call (a test run, a build) writes nothing to the transcript until it returns, so an unanswered tool_use keeps the agent working this long.
+const PENDING_TOOL_SEC = 15 * 60
+
 export function subagentRows(out: string, nowSec: number): Row[] {
   const rows: Row[] = []
   for (const line of out.split('\n')) {
@@ -127,7 +130,7 @@ export function subagentRows(out: string, nowSec: number): Row[] {
     const m = /^(\d+) (.+\/projects\/([^/]+)\/([^/]+)\/subagents\/(agent-[^/]+)\.jsonl)$/.exec(head)
     if (!m) continue
     const age = Math.max(0, nowSec - Number(m[1]))
-    rows.push({ key: 'sub:' + m[5], kind: 'subagent', parent: m[4], name: clean(desc).trim() || m[5], state: ended !== '1' && age < 30 ? 'working' : 'done', detail: activity(act), model: modelName(model) || undefined, ageSec: age })
+    rows.push({ key: 'sub:' + m[5], kind: 'subagent', parent: m[4], name: clean(desc).trim() || m[5], state: ended !== '1' && (age < 30 || (/^tool /.test(act) && age < PENDING_TOOL_SEC)) ? 'working' : 'done', detail: activity(act), model: modelName(model) || undefined, ageSec: age })
   }
   return rows
 }
