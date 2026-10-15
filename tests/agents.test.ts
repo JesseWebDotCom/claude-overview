@@ -133,11 +133,11 @@ test('modelName shortens Claude model ids', () => {
 })
 
 import { dotted } from '../hooks/agents'
-test('dotted cycles one to three dots on working rows only', () => {
-  expect([0, 1, 2, 3].map(i => dotted('Thinking', true, i))).toEqual(['Thinking.', 'Thinking..', 'Thinking...', 'Thinking.'])
-  expect(dotted('Thinking', false, 1)).toBe('Thinking')
-  expect(dotted('Tool call: Bash', true, 1)).toBe('Tool call: Bash..')
-  expect(dotted('Working…', true, 0)).toBe('Working.')
+test('dotted cycles none to three dots on working rows only', () => {
+  expect([0, 1, 2, 3, 4].map(i => dotted('Thinking', true, i))).toEqual(['Thinking', 'Thinking.', 'Thinking..', 'Thinking...', 'Thinking'])
+  expect(dotted('Thinking', false, 2)).toBe('Thinking')
+  expect(dotted('Tool call: Bash', true, 2)).toBe('Tool call: Bash..')
+  expect(dotted('Working…', true, 1)).toBe('Working.')
   expect(dotted('', true, 0)).toBe('')
 })
 

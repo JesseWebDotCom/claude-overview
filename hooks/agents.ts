@@ -74,7 +74,7 @@ export function staleActivity(text: string, state: State): string {
 // Animated ellipsis after the subtitle of a working row, replacing any trailing dots or ellipsis.
 export function dotted(text: string, working: boolean, step: number): string {
   if (!working || text === '') return text
-  return text.replace(/\s*(\.+|\u2026)$/, '') + '.'.repeat(((step % 3) + 3) % 3 + 1)
+  return text.replace(/\s*(\.+|\u2026)$/, '') + '.'.repeat(((step % 4) + 4) % 4)
 }
 
 // Lines of `<mtime> <path>|||<custom title>` for ~/.claude/projects/<dir>/<id>.jsonl
