@@ -21,12 +21,12 @@ const PILL: Record<string, string> = { sonnet: '#4a86e822', opus: '#d9693a22', f
 const pillColor = (m: string): string => PILL[m.toLowerCase().split(/[ -]/)[0]] ?? '#8a8a8522'
 const sub = (r: { model?: string; detail: string }): string => (r.model && r.detail.startsWith(r.model + ' · ') ? r.detail.slice(r.model.length + 3) : r.detail === r.model ? '' : r.detail)
 
-const TYPE_COLOR: Record<string, string> = { claude: '#4a86e8', codex: '#d9693a', local: '#c98b2b', tmux: '#8a8a85' }
+const TYPE_COLOR: Record<string, string> = { claude: '#d97757', codex: '#4a86e8', local: '#c98b2b', tmux: '#8a8a85' }
 const TYPE_LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', local: 'Local', tmux: 'Other' }
 // Simplified marks (a starburst and a six-loop knot), not the official artwork.
 const ICON: Record<string, string> = {
   Claude: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><g stroke="#d97757" stroke-width="3" stroke-linecap="round">' + [0, 45, 90, 135].map(a => `<line x1="12" y1="3" x2="12" y2="21" transform="rotate(${a} 12 12)"/>`).join('') + '</g></svg>',
-  Codex: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><g fill="none" stroke="#10a37f" stroke-width="1.8">' + [0, 60, 120, 180, 240, 300].map(a => `<rect x="8" y="1.5" width="8" height="12" rx="4" transform="rotate(${a} 12 12)"/>`).join('') + '</g></svg>',
+  Codex: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><g fill="none" stroke="#4a86e8" stroke-width="1.8">' + [0, 60, 120, 180, 240, 300].map(a => `<rect x="8" y="1.5" width="8" height="12" rx="4" transform="rotate(${a} 12 12)"/>`).join('') + '</g></svg>',
 }
 const DOT: Record<Row['state'], string> = { needs: 'warning', problem: 'error', working: 'success', idle: 'inactive', done: 'inactive' }
 const WORD: Record<Row['state'], string> = { needs: 'waiting on you', problem: 'stuck', working: 'working', idle: 'idle', done: 'done' }

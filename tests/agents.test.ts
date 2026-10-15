@@ -94,9 +94,9 @@ test('tmuxRow shows the Codex footer model, effort and session title', () => {
 
 test('pace judges the burn rate against the window', () => {
   const now = 1_000_000
-  expect(pace([{ name: 'Weekly', pct: 20, resetsAtSec: now + 302400 }], now)).toBe('On track · ~40% of Wk by reset')
-  expect(pace([{ name: 'Weekly', pct: 80, resetsAtSec: now + 302400 }], now)).toStartWith('Running fast · Wk limit in ~')
-  expect(pace([{ name: '5-hour', pct: 100, resetsAtSec: now + 600 }], now)).toBe('Limit reached · resets in 10m')
+  expect(pace([{ name: 'Weekly', pct: 20, resetsAtSec: now + 302400 }], now)).toBe("On track to use about 40% of this week's limit")
+  expect(pace([{ name: 'Weekly', pct: 80, resetsAtSec: now + 302400 }], now)).toStartWith("Slow down: this week's limit runs out in about ")
+  expect(pace([{ name: '5-hour', pct: 100, resetsAtSec: now + 600 }], now)).toBe('Limit reached. It resets in 10m')
 })
 
 test('expandTitle completes a Codex footer cut to the pane width', () => {

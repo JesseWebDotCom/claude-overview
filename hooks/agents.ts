@@ -188,15 +188,15 @@ export function pace(list: Limit[], nowSec: number): string {
     if (!win || l.resetsAtSec === null) continue
     const left = Math.max(0, l.resetsAtSec - nowSec)
     const elapsed = win - left
-    if (l.pct >= 100) { const r = { text: 'Limit reached · resets in ' + span(left), score: 1e9 }; if (!worst || r.score > worst.score) worst = r; continue }
+    if (l.pct >= 100) { const r = { text: 'Limit reached. It resets in ' + span(left), score: 1e9 }; if (!worst || r.score > worst.score) worst = r; continue }
     if (elapsed < win * 0.05) continue
     const projected = (l.pct * win) / elapsed
-    const tag = SHORT[l.name]
+    const when = l.name === 'Weekly' ? "this week's limit" : 'this 5-hour limit'
     const text = projected > 100
-      ? 'Running fast · ' + tag + ' limit in ~' + span(((100 - l.pct) / l.pct) * elapsed)
+      ? 'Slow down: ' + when + ' runs out in about ' + span(((100 - l.pct) / l.pct) * elapsed)
       : projected > 85
-        ? 'Close to the limit · ~' + Math.round(projected) + '% of ' + tag + ' by reset'
-        : 'On track · ~' + Math.round(projected) + '% of ' + tag + ' by reset'
+        ? 'Heads up: on pace to use about ' + Math.round(projected) + '% of ' + when
+        : 'On track to use about ' + Math.round(projected) + '% of ' + when
     if (!worst || projected > worst.score) worst = { text, score: projected }
   }
   return worst?.text ?? ''

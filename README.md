@@ -30,6 +30,6 @@ The pane opens beside the chat. Green-to-red bars are your usage, with a line sa
 
 - Codex and Claude usage appear only when there is a reading. No Codex, no Codex card.
 - Everything is read from your own machine (tmux, `~/.claude`, `~/.codex`). Nothing is sent anywhere.
-- macOS and Linux with tmux installed.
+- macOS only for now, with tmux installed to see tmux sessions.
 
 MIT licensed.
