@@ -1,6 +1,6 @@
 {
   "name": "overview",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "description": "Usage limits, context breakdown with one-click compact, sessions blocked on you, folders with uncommitted changes, and every agent in one live pane. Polls tmux, session files and transcripts itself; no model writes anything.",
   "author": {
     "name": "Jesse Torres"

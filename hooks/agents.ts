@@ -265,7 +265,8 @@ const CTX_PALETTE = ['#4a86e8', '#d97757', '#2fa36b', '#d9a21b', '#9b6bd6', '#2f
 export function contextAdvice(name: string, tokens: number, max: number): Advice | null {
   const rule = (warn: number, high: number, tip: string): Advice | null => tokens >= high ? { level: 'high', tip } : tokens >= warn ? { level: 'warn', tip } : null
   if (/^memory files/i.test(name)) return rule(8000, 16000, 'Heavy. Trim CLAUDE.md and AGENTS.md; move detail into docs read on demand.')
-  if (/^mcp tools/i.test(name)) return rule(8000, 15000, 'Many tool definitions. Turn off MCP servers you rarely use.')
+  // Claude's own built-in app tools already count here (about 24k), so only well past that is worth a nudge.
+  if (/^mcp tools/i.test(name)) return rule(35000, 50000,'Many tool definitions. Turn off MCP servers you rarely use.')
   if (/^skills/i.test(name)) return rule(5000, 10000, 'Disable skills you do not use.')
   if (/^custom agents/i.test(name)) return rule(3000, 6000, 'Remove agent definitions you do not use.')
   if (/^messages/i.test(name) && max > 0) return rule(max * 0.5, max * 0.7, 'Long conversation. Compact to free room.')

@@ -178,7 +178,9 @@ test('compact pace captions are short', () => {
 test('contextAdvice nudges only oversized categories; every counted category has its own colour', () => {
   expect(contextAdvice('Memory files', 3000, 200000)).toBeNull()
   expect(contextAdvice('Memory files', 9000, 200000)?.level).toBe('warn')
-  expect(contextAdvice('MCP tools', 22400, 200000)?.level).toBe('high')
+  expect(contextAdvice('MCP tools', 23600, 200000)).toBeNull()
+  expect(contextAdvice('MCP tools', 36000, 200000)?.level).toBe('warn')
+  expect(contextAdvice('MCP tools', 52000, 200000)?.level).toBe('high')
   expect(contextAdvice('Messages', 120000, 200000)?.level).toBe('warn')
   expect(contextAdvice('System tools', 99999, 200000)).toBeNull()
   expect(fileAdvice(9400)?.level).toBe('high')
