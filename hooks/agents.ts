@@ -137,6 +137,9 @@ export function dotted(text: string, working: boolean, step: number): string {
   return text.replace(/\s*(\.+|\u2026)$/, '') + '.'.repeat(((step % 4) + 4) % 4)
 }
 
+// A long tool call (a test run, a build) writes nothing to the transcript until it returns, so an unanswered tool_use keeps the agent working this long.
+const PENDING_TOOL_SEC = 15 * 60
+
 // Lines of `<mtime> <path>|||<custom title>` for ~/.claude/projects/<dir>/<id>.jsonl
 export function claudeRows(out: string, nowSec: number, skipId = '', links = ''): Row[] {
   const rows: Row[] = []
@@ -149,8 +152,10 @@ export function claudeRows(out: string, nowSec: number, skipId = '', links = '')
     if (!m) continue
     const age = Math.max(0, nowSec - Number(m[1]))
     if (m[4] === skipId) continue
-    // A finished turn (last message ended with end_turn) is idle at once; otherwise it is working while the transcript keeps moving.
-    const state: State = ended.trim() !== '1' && age < 45 ? 'working' : age < 6 * 3600 ? 'idle' : 'done'
+    // A finished turn (last message ended with end_turn) is idle at once; otherwise it is working while the transcript keeps moving,
+    // or while an unanswered tool call (a long test run or build writes nothing until it returns) is still within PENDING_TOOL_SEC.
+    const working = ended.trim() !== '1' && (age < 45 || (/^tool /.test(act.trim()) && age < PENDING_TOOL_SEC))
+    const state: State = working ? 'working' : age < 6 * 3600 ? 'idle' : 'done'
     const where = m[3].replace(/^-Users-[^-]+-/, '').replace(/^Developer-(github-com-|gitea-)?/, '') || 'home'
     rows.push({ key: 'claude:' + m[4], kind: 'claude', parent: m[4], name: clean(title).trim() || where, state, model: modelName(model) || undefined, detail: activity(act) || where, ageSec: age, spawnParent: parentOf.get(m[4]), cwd: cwd.trim() || undefined })
   }
@@ -158,9 +163,6 @@ export function claudeRows(out: string, nowSec: number, skipId = '', links = '')
 }
 
 // Lines of `<mtime> <path>|||<description>` for ~/.claude/projects/<dir>/<session>/subagents/<agent>.jsonl
-// A long tool call (a test run, a build) writes nothing to the transcript until it returns, so an unanswered tool_use keeps the agent working this long.
-const PENDING_TOOL_SEC = 15 * 60
-
 export function subagentRows(out: string, nowSec: number): Row[] {
   const rows: Row[] = []
   for (const line of out.split('\n')) {

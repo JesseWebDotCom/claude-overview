@@ -139,6 +139,16 @@ test('claudeRows goes idle at once when the last message ended the turn', () => 
   expect(claudeRows(l('0'), 1100)[0].state).toBe('idle')
 })
 
+test('claudeRows keeps a session working through a long unanswered tool call, and shows what it is running', () => {
+  const l = (act: string) => `1000 /h/.claude/projects/-Users-x-home/a.jsonl|||T|||${act}|||0`
+  const run = claudeRows(l('tool Bash Running full lint and tests'), 1150)[0]
+  expect(run.state).toBe('working')
+  expect(run.detail).toBe('Tool call: Bash · Running full lint and tests')
+  expect(claudeRows(l('tool Bash x'), 1000 + 15 * 60 + 1)[0].state).toBe('idle')
+  expect(claudeRows(l('think'), 1150)[0].state).toBe('idle')
+  expect(claudeRows(l('write'), 1150)[0].state).toBe('idle')
+})
+
 test('activity names what the last message is doing', () => {
   expect(activity('think')).toBe('Thinking')
   expect(activity('write')).toBe('Writing a reply')
