@@ -341,6 +341,11 @@ test('systemView reads cpu, memory, disk and gpu', () => {
   expect(v.meters.map(m => m.label + ' ' + m.pct)).toEqual(['CPU 18', 'Memory 64', 'Disk 57', 'GPU 9'])
   expect(v.worst).toBe('ok')
 })
+test('systemView lists the top processes for cpu and memory', () => {
+  const v = systemView('cpu=9\nmemtotal=1073741824\nmemused=536870912\ntopcpu=bun:9;Claude Helper:3\ntopmem=bun:536870912\n')!
+  expect(v.meters[0].top).toEqual([{ name: 'bun', value: '9%' }, { name: 'Claude Helper', value: '3%' }])
+  expect(v.meters[1].top).toEqual([{ name: 'bun', value: '0.5 GB' }])
+})
 test('systemView flags a full disk and a throttled cpu', () => {
   const v = systemView('cpu=10\ndisk=96|100\ntherm=70\n')!
   expect(v.worst).toBe('bad')

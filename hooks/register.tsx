@@ -68,7 +68,11 @@ awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END{printf "memtotal=%d\nmemused=%d\n
 echo "disk=$(df -k / | awk 'NR==2{print $3"|"$2}')"
 fi
 command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits 2>/dev/null | sed 's/, /|/g; s/^/gpu=/'
-true`
+true
+ps -A -o %cpu=,rss=,comm= 2>/dev/null | awk '{c=$1; r=$2; $1=""; $2=""; sub(/^ +/,""); n=$0; sub(/.*\//,"",n); sub(/ \(.*/,"",n); C[n]+=c; R[n]+=r} END{for(n in C) printf "%s|%.0f|%d\n", n, C[n]/ncpu, R[n]*1024}' ncpu="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)" > "${TMPDIR:-/tmp}/ov-top.$$"
+echo "topcpu=$(sort -t'|' -k2 -nr "${TMPDIR:-/tmp}/ov-top.$$" | head -3 | awk -F'|' '$2>0{printf "%s%s:%s", s, $1, $2; s=";"}')"
+echo "topmem=$(sort -t'|' -k3 -nr "${TMPDIR:-/tmp}/ov-top.$$" | head -3 | awk -F'|' '{printf "%s%s:%s", s, $1, $3; s=";"}')"
+rm -f "${TMPDIR:-/tmp}/ov-top.$$"`
 // Cards the person hid, by id; read from the plugin's /config toggles every poll.
 const CARDS: [string, string][] = [['subscriptions', 'Subscriptions'], ['system', 'System'], ['context', 'Context'], ['changes', 'Changes'], ['sessions', 'Sessions'], ['agents', 'Agents']]
 const hidden = new Set<string>()
@@ -153,7 +157,7 @@ const liveNow = (nowMs: number): Set<string> => {
   for (const [id, at] of liveSeen) if (nowMs - at > LIVE_GRACE_MS) liveSeen.delete(id)
   return new Set(liveSeen.keys())
 }
-const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes', 'system', 'cards'])
+const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes', 'system', 'cards', 'topCPU', 'topMemory'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
   try {
@@ -443,10 +447,16 @@ export const register: Register = on => {
           {!closed.has('system') && sysv.meters.map(m => (
             <Box key={m.label} flexDirection="column">
               <Box justifyContent="space-between" gap={2}>
-                <Text size="caption" bold><Text color={LEVEL_COLOR[m.level]}>●</Text> {m.label}</Text>
+                {m.top && m.top.length > 0 ? <Button plain key={'tm' + m.label} onPress={() => toggle('top' + m.label)}><Text size="caption" bold><Text color={LEVEL_COLOR[m.level]}>●</Text> {m.label} {closed.has('top' + m.label) ? '›' : '⌄'}</Text></Button> : <Text size="caption" bold><Text color={LEVEL_COLOR[m.level]}>●</Text> {m.label}</Text>}
                 <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor tabular wrap="truncate-end">{m.detail}</Text></Box>
               </Box>
               <Svg height={4} alt={m.label + ' use'} source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none"><rect width="700" height="4" rx="2" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(4, Math.min(100, m.pct) * 7)}" height="4" rx="2" fill="${LEVEL_COLOR[m.level]}"/></svg>`} />
+              {!closed.has('top' + m.label) && (m.top ?? []).map(t => (
+                <Box key={t.name} justifyContent="space-between" gap={2} marginLeft={2}>
+                  <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{t.name}</Text></Box>
+                  <Text size="caption" dimColor tabular>{t.value}</Text>
+                </Box>
+              ))}
             </Box>
           ))}
           {!closed.has('system') && sysv.note !== '' && <Text size="caption" color="#eab308" wrap="truncate-end">{sysv.note}</Text>}

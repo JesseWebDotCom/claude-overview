@@ -436,7 +436,7 @@ export function remoteIds(result: unknown): Set<string> {
 }
 
 export type Level = 'ok' | 'warn' | 'bad'
-export type Meter = { label: string; pct: number; level: Level; detail: string }
+export type Meter = { label: string; pct: number; level: Level; detail: string; top?: { name: string; value: string }[] }
 export type SysView = { meters: Meter[]; worst: Level; note: string }
 const lvl = (pct: number, warn = 80, bad = 92): Level => (pct >= bad ? 'bad' : pct >= warn ? 'warn' : 'ok')
 const gb = (b: number): string => (b / 1073741824 >= 100 ? Math.round(b / 1073741824) : Math.round(b / 107374182.4) / 10) + ' GB'
@@ -446,10 +446,11 @@ export function systemView(out: string): SysView | null {
   for (const line of out.split('\n')) { const i = line.indexOf('='); if (i > 0) kv.set(line.slice(0, i), line.slice(i + 1).trim()) }
   const num = (k: string): number | null => { const v = kv.get(k); return v === undefined || v === '' || isNaN(Number(v)) ? null : Number(v) }
   const meters: Meter[] = []
+  const tops = (k: string, fmt: (n: number) => string) => (kv.get(k) ?? '').split(';').filter(Boolean).map(x => { const i = x.lastIndexOf(':'); return { name: x.slice(0, i), value: fmt(Number(x.slice(i + 1))) } }).filter(t => t.name !== '')
   const cpu = num('cpu')
-  if (cpu !== null) { const p = Math.max(0, Math.min(100, cpu)); meters.push({ label: 'CPU', pct: p, level: lvl(p, 80, 95), detail: p + '% of ' + (num('ncpu') ?? '?') + ' cores' }) }
+  if (cpu !== null) { const p = Math.max(0, Math.min(100, cpu)); meters.push({ label: 'CPU', pct: p, level: lvl(p, 80, 95), detail: p + '% of ' + (num('ncpu') ?? '?') + ' cores', top: tops('topcpu', n => n + '%') }) }
   const mt = num('memtotal'), mu = num('memused')
-  if (mt && mu !== null) { const p = Math.round((mu / mt) * 100); meters.push({ label: 'Memory', pct: p, level: lvl(p), detail: gb(mu) + ' of ' + gb(mt) }) }
+  if (mt && mu !== null) { const p = Math.round((mu / mt) * 100); meters.push({ label: 'Memory', pct: p, level: lvl(p), detail: gb(mu) + ' of ' + gb(mt), top: tops('topmem', gb) }) }
   const [du, dt] = (kv.get('disk') ?? '').split('|').map(Number)
   if (dt > 0 && du >= 0) { const p = Math.round((du / dt) * 100); meters.push({ label: 'Disk', pct: p, level: lvl(p, 85, 95), detail: gb(du * 1024) + ' of ' + gb(dt * 1024) }) }
   const [gname, gutil, gmu, gmt, gtemp] = (kv.get('gpu') ?? '').split('|')
