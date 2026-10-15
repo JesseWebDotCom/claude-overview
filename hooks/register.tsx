@@ -127,14 +127,16 @@ const DIRTY_MS = 10000
 const dirty = new Map<string, { n: number; add: number; del: number; at: number }>()
 // The card rows: every folder with changes, biggest first, at most six.
 // The line pinned under the prompt: every folder with changes, biggest first, at most three.
+// Totals over every folder with changes.
+export function changesTotals(map: Map<string, { n: number; add?: number; del?: number }>): { folders: number; files: number; add: number; del: number } {
+  const rows = [...map.values()].filter(v => v.n > 0)
+  return { folders: rows.length, files: rows.reduce((a, v) => a + v.n, 0), add: rows.reduce((a, v) => a + (v.add ?? 0), 0), del: rows.reduce((a, v) => a + (v.del ?? 0), 0) }
+}
 // One short line for every folder with changes: "3 folders · 379 files +5309 −244".
 export function changesSummary(map: Map<string, { n: number; add?: number; del?: number }>): string {
-  const rows = [...map.values()].filter(v => v.n > 0)
-  if (rows.length === 0) return ''
-  const files = rows.reduce((a, v) => a + v.n, 0)
-  const add = rows.reduce((a, v) => a + (v.add ?? 0), 0)
-  const del = rows.reduce((a, v) => a + (v.del ?? 0), 0)
-  return (rows.length > 1 ? rows.length + ' folders · ' : '') + files + ' files +' + add + ' −' + del
+  const t = changesTotals(map)
+  if (t.folders === 0) return ''
+  return (t.folders > 1 ? t.folders + ' folders · ' : '') + t.files + ' files +' + t.add + ' −' + t.del
 }
 export function dirtyBrief(map: Map<string, { n: number }>): string {
   const items = [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n)
@@ -419,7 +421,12 @@ export const register: Register = on => {
               <Text size="footnote" bold>Changes {closed.has('changes') ? '›' : '⌄'}</Text>
             </Button>
             <Box gap={2} alignItems="center" flexShrink={1} minWidth={0}>
-              <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{changesSummary(dirty)}</Text></Box>
+              <Box flexShrink={1} minWidth={0} gap={2}>
+                {changesTotals(dirty).folders > 1 && <Text size="footnote" bold wrap="truncate-end">{changesTotals(dirty).folders} folders</Text>}
+                <Text size="footnote" bold wrap="truncate-end">{changesTotals(dirty).files} files</Text>
+                <Text size="footnote" bold color="#4ade80" tabular>+{changesTotals(dirty).add}</Text>
+                <Text size="footnote" bold color="#f87171" tabular>-{changesTotals(dirty).del}</Text>
+              </Box>
               <Button key="diff-open" onPress={() => { void showChanges($) }}><Text size="footnote" bold>Open</Text></Button>
             </Box>
           </Box>
