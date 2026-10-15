@@ -116,7 +116,9 @@ p=$(g '"spawnedFrom": ?\{"sessionId": ?"local_[^"]*"' | grep -oE 'local_[^"]*')
 k=$(g '"cliSessionId": ?"[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k"
 done`
-    sess = sessionRows(await run($, ['sh', '-c', sessScript], 6000), nowMs, $.session?.id?.() ?? '')
+    let me = ''
+    try { me = String($.session.id()) } catch {}
+    sess = sessionRows(await run($, ['sh', '-c', sessScript], 6000), nowMs, me)
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
 L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1)
