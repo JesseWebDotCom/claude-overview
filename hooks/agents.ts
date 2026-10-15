@@ -192,13 +192,12 @@ export function overlayRuns(rows: Row[], out: string): Row[] {
     if (!it) return r
     const owner = it.owner && it.owner !== 'codex' ? it.owner : undefined
     const run = it.runState ?? ''
-    // A finished run is done at once: its pane keeps busy-looking text (and a footer) until tmux closes it, about a minute later.
-    const state: State = /^(FAILED|DIED|TIMEOUT)$/.test(run) ? 'problem' : run === 'DONE' ? 'done' : r.state
+    const state: State = /^(FAILED|DIED|TIMEOUT)$/.test(run) ? 'problem' : r.state
     const where = it.path ? it.path.split('/').pop() ?? '' : ''
     // A bare "Running" says nothing: name the worktree the run works in.
     const base = run === 'running' && where && /^Running\b/.test(r.detail) ? r.detail + ' in ' + where : r.detail
     if (owner && run === 'running') waiting.set(owner, [...(waiting.get(owner) ?? []), where || r.name])
-    return { ...r, state, owner, parent: owner ?? r.parent, detail: run === 'DONE' ? 'Finished' : run && run !== 'running' ? run + ' · ' + base : base }
+    return { ...r, state, owner, parent: owner ?? r.parent, detail: run && run !== 'running' ? run + ' · ' + base : base }
   })
   // The owner's turn may already have ended while its run keeps going: show that wait instead of an idle, blank row.
   return mapped.map(r => {

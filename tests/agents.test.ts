@@ -46,13 +46,6 @@ test('an idle owner waits on its running Codex run, and the run names its worktr
   expect(overlayRuns([...owner, ...run], out.replace('running', 'DONE'))[0].state).toBe('idle')
 })
 
-test('a DONE run is done at once, even while its pane still looks busy', () => {
-  const run = [tmuxRow({ session: 'bot-amber-codex', id: '%1', command: 'node', activity: 0, dead: false }, 'Working (3s • esc to interrupt)', 0)]
-  expect(run[0].state).toBe('working')
-  const out = JSON.stringify({ tmux: 'bot-amber-codex', owner: 'sess-1', runState: 'DONE', path: '/w/x' })
-  expect(overlayRuns(run, out)[0]).toMatchObject({ state: 'done', detail: 'Finished' })
-})
-
 test('clean drops spinner and icon glyphs', () => {
   expect(clean('26.10.0 ⠀⣿  6.39s')).toBe('26.10.0 6.39s')
 })
