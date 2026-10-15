@@ -333,7 +333,7 @@ export const register: Register = on => {
             </Box>}
           </Box>}
         </Box>}
-        {dirtyList(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        {dirtyList(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(227,160,8,0.35)" backgroundColor="rgba(227,160,8,0.10)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
             <Text size="footnote" bold>Uncommitted changes</Text>
           </Box>
