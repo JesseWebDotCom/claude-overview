@@ -4,7 +4,6 @@ A live side pane for Claude Code. It shows how much of your Claude and Codex lim
 
 <img src="assets/overview.gif" alt="Overview pane" width="450">
 
-*Preview with made-up sessions.*
 
 It updates by itself every couple of seconds. No model is asked to write anything, so it costs nothing to leave open.
 
