@@ -47,6 +47,19 @@ const ctxColor = (i: number, dim: boolean): string => dim ? '#8a8a8555' : CTX_CO
 // Under this many cells the pane uses shorter captions and one truncated line per row.
 const NARROW_COLS = 80
 
+// -1 means "stamp me at the next draw", so a press needs no clock call.
+const say = (m: string): void => { ctxMsg = m; ctxMsgAt = -1 }
+async function compact($: any): Promise<void> {
+  try {
+    const r = await $.session.compact()
+    say(r?.skip ? 'Compact was skipped by a hook.' : 'Compacted.')
+    void poll($)
+  } catch (err) {
+    say('Compact failed: ' + String((err as any)?.message ?? err).slice(0, 80))
+  }
+  void $.ui.invalidate('ui.render')
+}
+
 const closed = new Set<string>(['inactive', 'context'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
@@ -140,6 +153,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button, Svg } = $.ui.resolve(e)
     const now = await $.clock.now()
+    if (ctxMsgAt === -1) ctxMsgAt = now
     const drift = polledAt > 0 ? Math.max(0, (now - polledAt) / 1000) : 0
     const pulse = Math.floor(now / TICK_MS) % 2 === 0
     const cols = e.viewport?.columns ?? 0
@@ -242,7 +256,7 @@ export const register: Register = on => {
             <Box flexGrow={1} flexShrink={1} minWidth={0}>
               {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map((c, i) => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${ctxColor(i, false)}"/>`; x += w; return r }).join('') })()}</svg>`} />}
             </Box>
-            <Button key="compact" onPress={async () => { clicks++; ctxMsg = 'Compacting… (click ' + clicks + ')'; ctxMsgAt = Date.now(); void $.ui.status('Overview: compacting…'); void $.ui.invalidate('ui.render'); try { const r = await $.session.compact(); ctxMsgAt = Date.now(); ctxMsg = r?.skip ? 'Compact was skipped by a hook.' : 'Compacted.'; void poll($) } catch (err) { ctxMsgAt = Date.now(); ctxMsg = 'Cannot compact while Claude is working. Try again when the turn ends.' } void $.ui.invalidate('ui.render'); }}>Compact</Button>
+            <Button key="compact" onPress={() => { clicks++; say('Compacting… (click ' + clicks + ')'); void $.ui.invalidate('ui.render'); void compact($) }}>Compact</Button>
           </Box>
           {ctxMsg !== '' && now - ctxMsgAt < 8000 && <Text size="caption" dimColor wrap="truncate-end">{ctxMsg}</Text>}
           {!closed.has('context') && <Box flexDirection="column" gap={1}>
