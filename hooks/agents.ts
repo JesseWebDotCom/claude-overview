@@ -434,3 +434,32 @@ export function remoteIds(result: unknown): Set<string> {
   walk(result)
   return out
 }
+
+export type Level = 'ok' | 'warn' | 'bad'
+export type Meter = { label: string; pct: number; level: Level; detail: string }
+export type SysView = { meters: Meter[]; worst: Level; note: string }
+const lvl = (pct: number, warn = 80, bad = 92): Level => (pct >= bad ? 'bad' : pct >= warn ? 'warn' : 'ok')
+const gb = (b: number): string => (b / 1073741824 >= 100 ? Math.round(b / 1073741824) : Math.round(b / 107374182.4) / 10) + ' GB'
+// Reads the key=value lines the system script prints; a meter is left out when its source is missing, so no card shows a fake zero.
+export function systemView(out: string): SysView | null {
+  const kv = new Map<string, string>()
+  for (const line of out.split('\n')) { const i = line.indexOf('='); if (i > 0) kv.set(line.slice(0, i), line.slice(i + 1).trim()) }
+  const num = (k: string): number | null => { const v = kv.get(k); return v === undefined || v === '' || isNaN(Number(v)) ? null : Number(v) }
+  const meters: Meter[] = []
+  const cpu = num('cpu')
+  if (cpu !== null) { const p = Math.max(0, Math.min(100, cpu)); meters.push({ label: 'CPU', pct: p, level: lvl(p, 80, 95), detail: p + '% of ' + (num('ncpu') ?? '?') + ' cores' }) }
+  const mt = num('memtotal'), mu = num('memused')
+  if (mt && mu !== null) { const p = Math.round((mu / mt) * 100); meters.push({ label: 'Memory', pct: p, level: lvl(p), detail: gb(mu) + ' of ' + gb(mt) }) }
+  const [du, dt] = (kv.get('disk') ?? '').split('|').map(Number)
+  if (dt > 0 && du >= 0) { const p = Math.round((du / dt) * 100); meters.push({ label: 'Disk', pct: p, level: lvl(p, 85, 95), detail: gb(du * 1024) + ' of ' + gb(dt * 1024) }) }
+  const [gname, gutil, gmu, gmt, gtemp] = (kv.get('gpu') ?? '').split('|')
+  if (gname && gutil !== undefined && gutil !== '' && !isNaN(Number(gutil))) {
+    const p = Math.max(0, Math.min(100, Number(gutil)))
+    const extra = [gmu && gmt ? gmu + ' of ' + gmt + ' MiB' : '', gtemp ? gtemp + '°C' : ''].filter(Boolean).join(' · ')
+    meters.push({ label: 'GPU', pct: p, level: lvl(p, 85, 97), detail: gname + (extra ? ' · ' + extra : '') })
+  }
+  if (meters.length === 0) return null
+  const limit = num('therm')
+  const worst: Level = meters.some(m => m.level === 'bad') ? 'bad' : meters.some(m => m.level === 'warn') ? 'warn' : 'ok'
+  return { meters, worst, note: limit !== null && limit < 100 ? 'Throttled to ' + limit + '% CPU speed by heat' : '' }
+}

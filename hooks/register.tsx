@@ -1,5 +1,6 @@
 import type { Register } from 'claude-code'
-import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, liveParents, remoteIds } from './agents'
+import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, liveParents, remoteIds, systemView } from './agents'
+import type { SysView, Level } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
@@ -30,6 +31,7 @@ const ICON: Record<string, string> = {
   Claude: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><g stroke="#d97757" stroke-width="3" stroke-linecap="round">' + [0, 45, 90, 135].map(a => `<line x1="12" y1="3" x2="12" y2="21" transform="rotate(${a} 12 12)"/>`).join('') + '</g></svg>',
   Codex: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><g fill="none" stroke="#4a86e8" stroke-width="1.8">' + [0, 60, 120, 180, 240, 300].map(a => `<rect x="8" y="1.5" width="8" height="12" rx="4" transform="rotate(${a} 12 12)"/>`).join('') + '</g></svg>',
 }
+const LEVEL_COLOR: Record<Level, string> = { ok: '#22c55e', warn: '#eab308', bad: '#ef4444' }
 const DOT: Record<Row['state'], string> = { needs: 'warning', problem: 'error', working: 'success', idle: 'inactive', done: 'inactive' }
 const WORD: Record<Row['state'], string> = { needs: 'waiting on you', problem: 'stuck', working: 'working', idle: 'idle', done: 'done' }
 
@@ -44,6 +46,50 @@ let sess: SessRow[] = []
 let sessOut = ''
 let sessMe = ''
 let ctxMsg = ''
+// System card: sampled every SYS_MS by a short portable script (ps, vm_stat, df, ioreg; /proc and nvidia-smi on Linux).
+const SYS_MS = 5000
+let sysv: SysView | null = null
+let sysAt = 0
+const sysScript = String.raw`if [ "$(uname)" = Darwin ]; then
+n=$(sysctl -n hw.ncpu)
+echo "ncpu=$n"
+echo "cpu=$(ps -A -o %cpu= | awk -v n=$n '{s+=$1} END{printf "%d", s/n}')"
+echo "memtotal=$(sysctl -n hw.memsize)"
+vm_stat | awk '/page size of/{p=$8} /Pages active/{a=$3} /Pages wired down/{w=$4} /occupied by compressor/{c=$5} END{printf "memused=%d\n", (a+w+c)*p}'
+echo "disk=$( (df -k /System/Volumes/Data 2>/dev/null || df -k /) | awk 'NR==2{print $3"|"$2}')"
+echo "therm=$(pmset -g therm 2>/dev/null | awk '/CPU_Speed_Limit/{print $3}')"
+io=$(ioreg -r -d 1 -w0 -c IOAccelerator 2>/dev/null)
+echo "gpu=$(echo "$io" | grep -o '"model" = "[^"]*"' | head -1 | cut -d'"' -f4)|$(echo "$io" | grep -o '"Device Utilization %"=[0-9]*' | head -1 | cut -d= -f2)|||"
+else
+n=$(nproc 2>/dev/null || echo 1)
+echo "ncpu=$n"
+echo "cpu=$(awk -v n=$n '{p=$1*100/n; if(p>100)p=100; printf "%d", p}' /proc/loadavg)"
+awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END{printf "memtotal=%d\nmemused=%d\n", t*1024, (t-a)*1024}' /proc/meminfo
+echo "disk=$(df -k / | awk 'NR==2{print $3"|"$2}')"
+fi
+command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits 2>/dev/null | sed 's/, /|/g; s/^/gpu=/'
+true`
+// Cards the person hid, by id; read from the plugin's /config toggles every poll.
+const CARDS: [string, string][] = [['subscriptions', 'Subscriptions'], ['system', 'System'], ['context', 'Context'], ['changes', 'Changes'], ['sessions', 'Sessions'], ['agents', 'Agents']]
+const hidden = new Set<string>()
+const cfgKeys = new Map<string, string>()
+async function readCards($: any): Promise<void> {
+  try {
+    const list: any[] = await $.config.list()
+    for (const [id] of CARDS) {
+      const f = 'show' + id[0].toUpperCase() + id.slice(1)
+      const r = list.find(x => String(x.key).endsWith('.' + f))
+      if (!r) continue
+      cfgKeys.set(id, String(r.key))
+      r.value === false ? hidden.add(id) : hidden.delete(id)
+    }
+  } catch { /* no config surface: every card shows */ }
+}
+async function setCard($: any, id: string, show: boolean): Promise<void> {
+  show ? hidden.delete(id) : hidden.add(id)
+  void $.ui.invalidate('ui.render')
+  try { await $.config.set({ key: cfgKeys.get(id) ?? 'overview.show' + id[0].toUpperCase() + id.slice(1), value: show }) } catch { /* the choice still holds until the next poll re-reads /config */ }
+}
 let compactingSince = 0 // 0 = idle; -1 = stamp at next draw
 let compactFrom = 0
 // Under this many cells the pane uses shorter captions and one truncated line per row.
@@ -111,7 +157,7 @@ const liveNow = (nowMs: number): Set<string> => {
   for (const [id, at] of liveSeen) if (nowMs - at > LIVE_GRACE_MS) liveSeen.delete(id)
   return new Set(liveSeen.keys())
 }
-const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes'])
+const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes', 'system', 'cards'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
   try {
@@ -168,6 +214,8 @@ export async function poll($: any): Promise<void> {
   try {
     const nowMs = await $.clock.now()
     const nowSec = Math.floor(nowMs / 1000)
+    await readCards($)
+    if (!hidden.has('system') && nowMs - sysAt >= SYS_MS) { sysAt = nowMs; sysv = systemView(await run($, ['sh', '-c', sysScript], 4000)) }
     const paneOut = await run($, ['tmux', 'list-panes', '-a', '-F', '#{session_name}|||#{pane_id}|||#{pane_current_command}|||#{window_activity}|||#{pane_dead}|||#{pane_pid}'])
     const panes = parsePanes(paneOut).slice(0, MAX_PANES)
     const tmux = await Promise.all(panes.map(async p => tmuxRow(p, await run($, ['tmux', 'capture-pane', '-p', '-t', p.id, '-S', '-14']), nowSec)))
@@ -355,7 +403,7 @@ export const register: Register = on => {
     )
     return (
       <Box flexDirection="column" paddingX={1} paddingY={1} gap={1}>
-        {(claudeLim.length > 0 || codexLim.length > 0) && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        {!hidden.has('subscriptions') && (claudeLim.length > 0 || codexLim.length > 0) && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Text size="footnote" bold>Subscriptions</Text>
           {[['Claude', claudeLim], ['Codex', codexLim]].map(([who, list]: any) => {
             if (list.length === 0) return null
@@ -377,14 +425,38 @@ export const register: Register = on => {
             )
           })}
         </Box>}
-        {ctx && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
-          <Box justifyContent="space-between" gap={2}>
+        {!hidden.has('system') && sysv && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+          <Box justifyContent="space-between" alignItems="center" gap={2}>
+            <Button plain key="tsystem" onPress={() => toggle('system')}>
+              <Text size="footnote" bold>System {closed.has('system') ? '›' : '⌄'}</Text>
+            </Button>
+            <Box gap={2} flexShrink={1} minWidth={0} flexWrap="wrap" justifyContent="flex-end">
+              {sysv.meters.map(m => (
+                <Text key={m.label} size="caption" dimColor tabular><Text color={LEVEL_COLOR[m.level]}>●</Text> {m.label === 'Memory' ? 'Mem' : m.label} {Math.round(m.pct)}%</Text>
+              ))}
+            </Box>
+          </Box>
+          {!closed.has('system') && sysv.meters.map(m => (
+            <Box key={m.label} flexDirection="column">
+              <Box justifyContent="space-between" gap={2}>
+                <Text size="caption" bold><Text color={LEVEL_COLOR[m.level]}>●</Text> {m.label}</Text>
+                <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor tabular wrap="truncate-end">{m.detail}</Text></Box>
+              </Box>
+              <Svg height={4} alt={m.label + ' use'} source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none"><rect width="700" height="4" rx="2" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(4, Math.min(100, m.pct) * 7)}" height="4" rx="2" fill="${LEVEL_COLOR[m.level]}"/></svg>`} />
+            </Box>
+          ))}
+          {!closed.has('system') && sysv.note !== '' && <Text size="caption" color="#eab308" wrap="truncate-end">{sysv.note}</Text>}
+        </Box>}
+        {ctx && !hidden.has('context') && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+          <Box gap={2} alignItems="center">
             <Button plain key="tcontext" onPress={() => toggle('context')}>
               <Text size="footnote" bold>Context {closed.has('context') ? '›' : '⌄'}</Text>
             </Button>
-            <Text size="caption" dimColor tabular>{ctx.percent}%{closed.has('context') ? '' : ' used  ' + kTokens(ctx.used) + ' / ' + kTokens(ctx.max)}</Text>
+            <Box flexGrow={1} minWidth={0}>
+              {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map(c => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${c.color}"/>`; x += w; return r }).join('') })()}</svg>`} />}
+            </Box>
+            <Text size="caption" dimColor tabular>{ctx.percent}%{closed.has('context') ? '' : '  ' + kTokens(ctx.used) + ' / ' + kTokens(ctx.max)}</Text>
           </Box>
-          {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map(c => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${c.color}"/>`; x += w; return r }).join('') })()}</svg>`} />}
           <Box justifyContent="space-between" gap={2}>
             <Box flexShrink={1} minWidth={0}>
               <Text size="caption" dimColor wrap="truncate-end">{compacting ? 'Compacting' + '.'.repeat(1 + (Math.floor(now / 1000) % 3)) + ' summarizing the conversation' : ctxMsg !== '' ? ctxMsg : contextNote(ctx)}</Text>
@@ -415,7 +487,7 @@ export const register: Register = on => {
             </Box>}
           </Box>}
         </Box>}
-        {dirtyStats(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        {!hidden.has('changes') && dirtyStats(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" alignItems="center">
             <Button plain key="tchanges" onPress={() => toggle('changes')}>
               <Text size="footnote" bold>Changes {closed.has('changes') ? '›' : '⌄'}</Text>
@@ -442,14 +514,16 @@ export const register: Register = on => {
           ))}
           {changesMsg !== '' && <Text size="caption" color="#e5736f" wrap="truncate-end">{changesMsg}</Text>}
         </Box>}
-        <Box flexDirection="column" borderStyle="round" borderColor={waiting ? `rgba(227,160,8,${PULSE[Math.floor(now / TICK_MS) % PULSE.length]})` : 'rgba(128,128,128,0.22)'} backgroundColor={waiting ? `rgba(227,160,8,${(PULSE[Math.floor(now / TICK_MS) % PULSE.length] * 0.14).toFixed(3)})` : 'rgba(128,128,128,0.08)'} paddingX={2} paddingY={1} gap={1}>
-          <Box justifyContent="space-between" gap={2}>
+        {!hidden.has('sessions') && <Box flexDirection="column" borderStyle="round" borderColor={waiting ? `rgba(227,160,8,${PULSE[Math.floor(now / TICK_MS) % PULSE.length]})` : 'rgba(128,128,128,0.22)'} backgroundColor={waiting ? `rgba(227,160,8,${(PULSE[Math.floor(now / TICK_MS) % PULSE.length] * 0.14).toFixed(3)})` : 'rgba(128,128,128,0.08)'} paddingX={2} paddingY={1} gap={1}>
+          <Box gap={2} alignItems="center">
             <Button plain key="tsessions" onPress={() => toggle('sessions')}>
               <Text size="footnote" bold>Sessions {closed.has('sessions') ? '›' : '⌄'}</Text>
             </Button>
+            <Box flexGrow={1} minWidth={0}>
+              {sess.length > 0 && <Svg height={4} alt="Sessions by state" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none">${sess.map((x, i) => `<rect x="${i * (700 / sess.length) + 1}" width="${Math.max(1, 700 / sess.length - 2)}" height="4" rx="2" fill="${x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#22c55e' : '#8a8a85'}" fill-opacity="${x.kind === 'idle' ? 0.4 : 1}"/>`).join('')}</svg>`} />}
+            </Box>
             <Text size="caption" color={sess.some(x => x.kind === 'blocked') ? '#e3a008' : undefined} dimColor={!sess.some(x => x.kind === 'blocked')}>{sessionSummary(sess)}</Text>
           </Box>
-          {sess.length > 0 && <Svg height={4} alt="Sessions by state" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none">${sess.map((x, i) => `<rect x="${i * (700 / sess.length) + 1}" width="${Math.max(1, 700 / sess.length - 2)}" height="4" rx="2" fill="${x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#22c55e' : '#8a8a85'}" fill-opacity="${x.kind === 'idle' ? 0.4 : 1}"/>`).join('')}</svg>`} />}
           <Text size="caption" dimColor wrap="truncate-end">{sess.some(x => x.kind === 'blocked') ? sess.filter(x => x.kind === 'blocked').length + ' waiting on you' : 'Nothing waiting on you'}</Text>
           {closed.has('sessions') && sess.filter(x => x.kind === 'blocked').slice(0, 2).map(x => (
             <Box key={x.id} flexDirection="column">
@@ -480,8 +554,8 @@ export const register: Register = on => {
             </Box>
           ))}
           {!closed.has('sessions') && sess.length === 0 && <Text size="caption" dimColor>No sessions in the last day.</Text>}
-        </Box>
-        <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        </Box>}
+        {!hidden.has('agents') && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between">
             <Text size="footnote" bold>Agents</Text>
             <Text size="caption" dimColor>{summary(rows)}</Text>
@@ -496,6 +570,18 @@ export const register: Register = on => {
           {active.map(row)}
           {head('inactive', 'Inactive', inactive.length)}
           {!closed.has('inactive') && inactive.map(row)}
+        </Box>}
+        <Box flexDirection="column" gap={1}>
+          <Button plain key="tcards" onPress={() => toggle('cards')}>
+            <Text size="caption" dimColor>Cards {closed.has('cards') ? '›' : '⌄'}{hidden.size > 0 ? '  ' + hidden.size + ' hidden' : ''}</Text>
+          </Button>
+          {!closed.has('cards') && <Box gap={2} flexWrap="wrap">
+            {CARDS.map(([id, label]) => (
+              <Button key={'show-' + id} onPress={() => { void setCard($, id, hidden.has(id)) }}>
+                <Text size="caption" bold={!hidden.has(id)} dimColor={hidden.has(id)}>{hidden.has(id) ? '□' : '■'} {label}</Text>
+              </Button>
+            ))}
+          </Box>}
         </Box>
       </Box>
     )

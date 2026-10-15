@@ -35,13 +35,21 @@ Sessions started by another session nest under it with a ↳, like subagents do,
 
 ## Context: compact in time, see what is eating it
 
-The Context card sits under your usage. It is one bar and one line, and opens into the full picture.
+The Context card sits under System. Its first line holds the title, the bar and the percent; the second says how much room is left. It opens into the full picture.
 
 <img src="assets/context-expanded.png" alt="Context card expanded" width="450">
 
 - **Compact when you need to.** The bar shows how full the context is and the line says how much room is left before auto-compact ("65k until auto-compact", then a nudge as it gets tight). The Compact button runs it in one click, greys out while it works, and reports how far the context dropped.
 - **See what is taking the space.** Every category (system prompt, tools, MCP tools, memory files, skills, messages) has its own colour in the bar and its own row with tokens and percent. Memory files list each CLAUDE.md and AGENTS.md with its size, so you know which one is heavy.
 - **Get suggestions.** A category that has grown too big gets an amber or red dot and a one-line fix: turn off MCP servers you rarely use, trim a long CLAUDE.md, disable unused skills, compact a long conversation.
+
+## System: is the machine healthy
+
+The System card sits above Context. Collapsed, it is one line: a dot and a percent each for CPU, memory, disk and GPU, green below 80%, amber from 80% and red from 92% (CPU 95%, disk 85% and 95%). Click the title to see each meter with its bar and numbers: cores in use, gigabytes of memory and disk, and the GPU model (plus memory and temperature when `nvidia-smi` is present). A Mac that macOS has slowed down for heat says so. It is sampled every 5 seconds with `ps`, `vm_stat`, `df` and `ioreg` on a Mac, and `/proc` and `nvidia-smi` on Linux, so nothing needs installing. A meter whose source is missing is left out rather than shown as zero.
+
+## Show or hide cards
+
+Every card has a switch. Open **Cards** at the bottom of the pane and click a name to hide or show it, or use `/config` and flip "Show the Sessions card" and the others. The choice is kept between sessions.
 
 ## Changes
 

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow, systemView } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -334,3 +334,16 @@ test('changesSummary totals every folder in one short line', async () => {
   expect(changesSummary(new Map([['/a/x', { n: 2, add: 4, del: 0 }]]))).toBe('2 files +4 −0')
   expect(changesSummary(new Map([['/a/x', { n: 0 }]]))).toBe('')
 })
+
+const SYS = 'ncpu=14\ncpu=18\nmemtotal=25769803776\nmemused=16459202560\ndisk=556798800|971350180\ntherm=\ngpu=Apple M4 Pro|9|||\n'
+test('systemView reads cpu, memory, disk and gpu', () => {
+  const v = systemView(SYS)!
+  expect(v.meters.map(m => m.label + ' ' + m.pct)).toEqual(['CPU 18', 'Memory 64', 'Disk 57', 'GPU 9'])
+  expect(v.worst).toBe('ok')
+})
+test('systemView flags a full disk and a throttled cpu', () => {
+  const v = systemView('cpu=10\ndisk=96|100\ntherm=70\n')!
+  expect(v.worst).toBe('bad')
+  expect(v.note).toContain('70%')
+})
+test('systemView with no data gives no card', () => { expect(systemView('')).toBeNull() })
