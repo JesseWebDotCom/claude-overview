@@ -4,6 +4,8 @@ import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
 const PANE = 'overview'
+// A card waiting on you breathes: its border and tint step through these alphas once per tick.
+const PULSE = [0.35, 0.6, 0.85, 1, 0.85, 0.6]
 const POLL_MS = 2000
 const TICK_MS = 1000
 const SPIN = ['●', '●', '○', '○']
@@ -251,6 +253,7 @@ export const register: Register = on => {
     const live = (r: Row) => r.state !== 'idle' && r.state !== 'done'
     const ordered = types.flatMap(t => rows.filter(r => typeOf(r) === t).sort((p, q) => Number(live(q)) - Number(live(p))))
     const bar = ordered.map((r, i) => `<rect x="${i * w + 1}" y="0" width="${Math.max(1, w - 2)}" height="4" rx="2" fill="${TYPE_COLOR[typeOf(r)]}" fill-opacity="${live(r) ? 1 : 0.28}"/>`).join('')
+    const waiting = sess.some(x => x.kind === 'blocked')
     const toggle = (id: string) => { closed.has(id) ? closed.delete(id) : closed.add(id); void $.ui.invalidate('ui.render') }
     const row = (r: Row) => (
       <Box key={r.key} flexDirection="column" marginLeft={((r as any).depth ?? 0) * 2}>
@@ -356,7 +359,7 @@ export const register: Register = on => {
             ))}
           </Box>
         </Box>}
-        <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+        <Box flexDirection="column" borderStyle="round" borderColor={waiting ? `rgba(227,160,8,${PULSE[Math.floor(now / TICK_MS) % PULSE.length]})` : 'rgba(128,128,128,0.22)'} backgroundColor={waiting ? `rgba(227,160,8,${(PULSE[Math.floor(now / TICK_MS) % PULSE.length] * 0.14).toFixed(3)})` : 'rgba(128,128,128,0.08)'} paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
             <Button plain key="tsessions" onPress={() => toggle('sessions')}>
               <Text size="footnote" bold>Sessions {closed.has('sessions') ? '›' : '⌄'}</Text>
