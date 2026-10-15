@@ -8,7 +8,7 @@
     {
       "name": "overview",
       "source": "./",
-      "description": "A live Claude Code side pane: Claude and Codex usage limits, context breakdown with tips and one-click compact, sessions waiting on you, and every running agent."
+      "description": "A live Claude Code side pane: Claude and Codex usage limits, context breakdown with tips and one-click compact, sessions waiting on you, uncommitted changes, and every running agent."
     }
   ]
 }
