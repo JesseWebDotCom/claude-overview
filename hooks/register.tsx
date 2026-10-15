@@ -72,17 +72,28 @@ async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
 }
 
 // Uncommitted-change counts per folder, refreshed at most every DIRTY_MS so a big repo is not scanned every poll.
+// `own` is true for a linked worktree: only there does a change belong to the session in it, so only there does a row get the ± mark.
 const DIRTY_MS = 10000
-const dirty = new Map<string, { n: number; at: number }>()
-export const dirtyOf = (cwd?: string): number => (cwd ? dirty.get(cwd)?.n ?? 0 : 0)
+const dirty = new Map<string, { n: number; own: boolean; at: number }>()
+export const dirtyOf = (cwd?: string): number => { const d = cwd ? dirty.get(cwd) : undefined; return d?.own ? d.n : 0 }
+// The line pinned under the prompt: every folder with changes, biggest first, at most three.
+export function dirtyBrief(map: Map<string, { n: number }>): string {
+  const items = [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n)
+  if (items.length === 0) return ''
+  const shown = items.slice(0, 3).map(([d, v]) => (d.split('/').pop() || d) + ' ' + v.n)
+  return '± ' + shown.join(' · ') + (items.length > 3 ? ' · +' + (items.length - 3) + ' more' : '')
+}
 async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
   const want = [...new Set(cwds.filter(Boolean))].filter(d => nowMs - (dirty.get(d)?.at ?? 0) >= DIRTY_MS).slice(0, 24)
-  if (want.length === 0) return
-  const out = await run($, ['sh', '-c', 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); echo "$d|||$n"; done', 'sh', ...want], 8000)
-  for (const line of out.split('\n')) {
-    const [d, n] = line.split('|||')
-    if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, at: nowMs })
+  if (want.length > 0) {
+    const script = 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); g=$(git -C "$d" rev-parse --absolute-git-dir 2>/dev/null); c=$(git -C "$d" rev-parse --path-format=absolute --git-common-dir 2>/dev/null); o=0; [ -n "$g" ] && [ "$g" != "$c" ] && o=1; echo "$d|||$n|||$o"; done'
+    const out = await run($, ['sh', '-c', script, 'sh', ...want], 8000)
+    for (const line of out.split('\n')) {
+      const [d, n, o] = line.split('|||')
+      if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, own: o === '1', at: nowMs })
+    }
   }
+  try { const t = dirtyBrief(new Map([...dirty.entries()].filter(([d]) => cwds.includes(d)))); $.ui.status?.(t === '' ? undefined : t) } catch { /* no status line on this surface */ }
 }
 
 export async function poll($: any): Promise<void> {

@@ -217,3 +217,10 @@ test('claudeRows and sessionRows carry the working folder', () => {
   const s = sessionRows(`${1_000_000_000 - 1000}|||false|||T||||||||||||claude-opus-5-5|||local_a||||||cli-a|||0|||/Users/x/app`, 1_000_000_000)
   expect(s[0].cwd).toBe('/Users/x/app')
 })
+
+test('dirtyBrief lists the dirtiest folders, three at most', async () => {
+  const { dirtyBrief } = await import('../hooks/register')
+  const m = new Map([['/a/home', { n: 8 }], ['/a/wt-one', { n: 3 }], ['/a/clean', { n: 0 }], ['/a/b', { n: 1 }], ['/a/c', { n: 2 }]])
+  expect(dirtyBrief(m)).toBe('± home 8 · wt-one 3 · c 2 · +1 more')
+  expect(dirtyBrief(new Map([['/a/x', { n: 0 }]]))).toBe('')
+})
