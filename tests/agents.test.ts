@@ -131,3 +131,12 @@ test('modelName shortens Claude model ids', () => {
   expect(modelName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5')
   expect(modelName('')).toBe('')
 })
+
+import { dotted } from '../hooks/agents'
+test('dotted cycles one to three dots on working rows only', () => {
+  expect([0, 1, 2, 3].map(i => dotted('Thinking', true, i))).toEqual(['Thinking.', 'Thinking..', 'Thinking...', 'Thinking.'])
+  expect(dotted('Thinking', false, 1)).toBe('Thinking')
+  expect(dotted('Tool call: Bash', true, 1)).toBe('Tool call: Bash..')
+  expect(dotted('Working…', true, 0)).toBe('Working.')
+  expect(dotted('', true, 0)).toBe('')
+})

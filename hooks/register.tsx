@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel } from './agents'
+import { dotted, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel } from './agents'
 import type { Row, Limit } from './agents'
 
 const PANE = 'overview'
@@ -178,7 +178,7 @@ export const register: Register = on => {
         {(r.model || r.detail !== '') && (
           <Box marginLeft={2} gap={1} alignItems="flex-start">
             {r.model && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(r.model)}><Text size="caption" dimColor wrap="truncate-end">{r.model}</Text></Box>}
-            {sub(r) !== '' && <Text size="caption" dimColor>{sub(r)}</Text>}
+            {sub(r) !== '' && <Text size="caption" dimColor>{dotted(sub(r), r.state === 'working', Math.floor(now / TICK_MS))}</Text>}
           </Box>
         )}
       </Box>

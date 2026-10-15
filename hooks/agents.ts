@@ -66,6 +66,12 @@ export function activity(raw: string): string {
   return ('Tool call: ' + (arg ? tool + ' · ' + arg : tool)).slice(0, 110)
 }
 
+// Animated ellipsis after the subtitle of a working row, replacing any trailing dots or ellipsis.
+export function dotted(text: string, working: boolean, step: number): string {
+  if (!working || text === '') return text
+  return text.replace(/\s*(\.+|\u2026)$/, '') + '.'.repeat(((step % 3) + 3) % 3 + 1)
+}
+
 // Lines of `<mtime> <path>|||<custom title>` for ~/.claude/projects/<dir>/<id>.jsonl
 export function claudeRows(out: string, nowSec: number, skipId = '', links = ''): Row[] {
   const rows: Row[] = []
