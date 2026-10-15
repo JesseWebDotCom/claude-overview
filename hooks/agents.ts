@@ -192,22 +192,22 @@ const SHORT: Record<string, string> = { '5-hour': '5h', Weekly: 'Wk' }
 const span = (s: number): string => (s >= 86400 ? Math.floor(s / 86400) + 'd ' + Math.floor((s % 86400) / 3600) + 'h' : s >= 3600 ? Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm' : Math.max(1, Math.floor(s / 60)) + 'm')
 
 // One line on whether the burn rate fits each window, judged on the window that is furthest ahead of pace.
-export function pace(list: Limit[], nowSec: number): string {
+export function pace(list: Limit[], nowSec: number, compact = false): string {
   let worst: { text: string; score: number } | null = null
   for (const l of list) {
     const win = WINDOW_SEC[l.name]
     if (!win || l.resetsAtSec === null) continue
     const left = Math.max(0, l.resetsAtSec - nowSec)
     const elapsed = win - left
-    if (l.pct >= 100) { const r = { text: 'Limit reached. It resets in ' + span(left), score: 1e9 }; if (!worst || r.score > worst.score) worst = r; continue }
+    if (l.pct >= 100) { const r = { text: (compact ? 'Limit reached, resets in ' : 'Limit reached. It resets in ') + span(left), score: 1e9 }; if (!worst || r.score > worst.score) worst = r; continue }
     if (elapsed < win * 0.05) continue
     const projected = (l.pct * win) / elapsed
-    const when = l.name === 'Weekly' ? "this week's limit" : 'this 5-hour limit'
+    const when = compact ? (l.name === 'Weekly' ? 'the week' : 'the 5 hours') : l.name === 'Weekly' ? "this week's limit" : 'this 5-hour limit'
     const text = projected > 100
-      ? 'Slow down: ' + when + ' runs out in about ' + span(((100 - l.pct) / l.pct) * elapsed)
+      ? (compact ? 'Slow down: out in ~' : 'Slow down: ' + when + ' runs out in about ') + span(((100 - l.pct) / l.pct) * elapsed)
       : projected > 85
-        ? 'Heads up: on pace to use about ' + Math.round(projected) + '% of ' + when
-        : 'On track to use about ' + Math.round(projected) + '% of ' + when
+        ? (compact ? 'Heads up: ~' : 'Heads up: on pace to use about ') + Math.round(projected) + '% of ' + when
+        : (compact ? 'On track: ~' : 'On track to use about ') + Math.round(projected) + '% of ' + when
     if (!worst || projected > worst.score) worst = { text, score: projected }
   }
   return worst?.text ?? ''
@@ -224,4 +224,24 @@ export function expandTitle(rows: Row[], indexText: string): Row[] {
     const full = prefix ? names.find(n => n.startsWith(prefix) && n.length > prefix.length) : undefined
     return full ? { ...r, detail: r.detail.slice(0, cut + 3) + clean(full).trim() } : r
   })
+}
+
+export type CtxCat = { name: string; tokens: number; pct: number; dim: boolean; free: boolean }
+export type CtxView = { percent: number; used: number; max: number; cats: CtxCat[] }
+
+export function kTokens(n: number): string {
+  return n >= 1000 ? (n >= 100000 ? Math.round(n / 1000) : Math.round(n / 100) / 10) + 'k' : String(n)
+}
+
+// Shapes the session's context breakdown for display; null when there is nothing to show.
+export function contextView(usage: any): CtxView | null {
+  const b = usage?.context?.breakdown
+  const percent = usage?.context?.percent ?? b?.percentage
+  if (typeof percent !== 'number') return null
+  const max = b?.maxTokens ?? usage?.context?.window ?? 0
+  const cats: CtxCat[] = (b?.categories ?? []).filter((c: any) => c.tokens > 0).map((c: any) => ({
+    name: String(c.name), tokens: c.tokens, pct: max > 0 ? (c.tokens / max) * 100 : 0, dim: c.isDeferred === true || c.kind === 'deferred', free: c.kind === 'free',
+  }))
+  const used = b?.totalTokens ?? usage?.context?.tokens ?? 0
+  return { percent: Math.round(percent), used, max, cats }
 }

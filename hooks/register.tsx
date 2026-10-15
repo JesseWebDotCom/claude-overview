@@ -1,5 +1,6 @@
 import type { Register } from 'claude-code'
-import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel } from './agents'
+import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel, contextView, kTokens } from './agents'
+import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
 const PANE = 'overview'
@@ -37,7 +38,13 @@ const since = new Map<string, { state: string; at: number }>()
 let busy = false
 let claudeLim: Limit[] = []
 let codexLim: Limit[] = []
-const closed = new Set<string>(['inactive'])
+let ctx: CtxView | null = null
+const CTX_COLOR = ['#4a86e8', '#d97757', '#2fa36b', '#d9a21b']
+const ctxColor = (i: number, dim: boolean): string => dim ? '#8a8a8555' : CTX_COLOR[i] ?? '#8a8a85'
+// Under this many cells the pane uses shorter captions and one truncated line per row.
+const NARROW_COLS = 80
+
+const closed = new Set<string>(['inactive', 'context'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
   try {
@@ -76,6 +83,7 @@ done`
     const claude = claudeRows(await run($, ['sh', '-c', claudeScript], 6000), nowSec, '', await run($, ['sh', '-c', linkScript], 4000))
     try { claudeLim = claudeLimits((await $.session.usage()).rateLimits ?? []) } catch { /* not on a subscription */ }
     codexLim = codexLimits(await run($, ['sh', '-c', 'for f in $(ls -t $(find "$HOME/.codex/sessions" -name "*.jsonl" -mmin -1440 2>/dev/null) 2>/dev/null | head -4); do grep -h "rate_limits" "$f" | tail -1; done | head -1'], 5000))
+    try { ctx = contextView(await $.session.usage({ breakdown: 'summary', columns: 80 })) } catch { /* no session bound */ }
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
 L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1)
@@ -131,6 +139,8 @@ export const register: Register = on => {
     const now = await $.clock.now()
     const drift = polledAt > 0 ? Math.max(0, (now - polledAt) / 1000) : 0
     const pulse = Math.floor(now / TICK_MS) % 2 === 0
+    const cols = e.viewport?.columns ?? 0
+    const narrow = cols > 0 && cols < NARROW_COLS
     const age = (r: Row) => ageLabel(r.ageSec === null ? null : r.ageSec + drift)
     // A session nests under the session that started it, and a subagent under its session, when both are in this list.
     const nest = (list: Row[]): Row[] => {
@@ -168,17 +178,17 @@ export const register: Register = on => {
     const row = (r: Row) => (
       <Box key={r.key} flexDirection="column" marginLeft={((r as any).depth ?? 0) * 2}>
         <Box justifyContent="space-between" gap={2}>
-          <Text size="footnote" wrap="truncate-end"><Text color={TYPE_COLOR[typeOf(r)]} dimColor={(r as any).depth > 0 && r.state === 'working' && pulse}>{(r as any).depth > 0 ? '↳' : r.state === 'working' && pulse ? '□' : '■'}</Text>  <Text bold>{r.name}</Text></Text>
-          <Box gap={1}>
+          <Box flexShrink={1} minWidth={0}><Text size="footnote" wrap="truncate-end"><Text color={TYPE_COLOR[typeOf(r)]} dimColor={(r as any).depth > 0 && r.state === 'working' && pulse}>{(r as any).depth > 0 ? '↳' : r.state === 'working' && pulse ? '□' : '■'}</Text>  <Text bold>{r.name}</Text></Text></Box>
+          <Box gap={1} flexShrink={0}>
             {r.state === 'problem' && <Text size="caption" color="#f85149" bold>stuck</Text>}
             {r.state === 'needs' && <Text size="caption" color="#e3a008" bold>waiting</Text>}
             <Text size="caption" dimColor tabular>{age(r)}</Text>
           </Box>
         </Box>
         {(r.model || r.detail !== '') && (
-          <Box marginLeft={2} gap={1} alignItems="flex-start">
+          <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
             {r.model && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(r.model)}><Text size="caption" dimColor wrap="truncate-end">{r.model}</Text></Box>}
-            {sub(r) !== '' && <Text size="caption" dimColor>{dotted(sub(r), r.state === 'working', Math.floor(now / TICK_MS))}</Text>}
+            {sub(r) !== '' && <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{dotted(sub(r), r.state === 'working', Math.floor(now / TICK_MS))}</Text></Box>}
           </Box>
         )}
       </Box>
@@ -210,10 +220,32 @@ export const register: Register = on => {
                   <Text size="caption" dimColor tabular>{text}</Text>
                 </Box>
                 <Svg height={10} alt={who + ' usage'} source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 10" width="700" height="10" preserveAspectRatio="none"><defs><linearGradient id="h" gradientUnits="userSpaceOnUse" x1="0" x2="700" y1="0" y2="0"><stop offset="0" stop-color="#22c55e"/><stop offset="0.5" stop-color="#eab308"/><stop offset="0.75" stop-color="#f97316"/><stop offset="1" stop-color="#ef4444"/></linearGradient></defs>${bars}</svg>`} />
-                {pace(list, Math.floor(now / 1000)) !== '' && <Text size="caption" dimColor>{pace(list, Math.floor(now / 1000))}</Text>}
+                {pace(list, Math.floor(now / 1000), narrow) !== '' && <Text size="caption" dimColor wrap="truncate-end">{pace(list, Math.floor(now / 1000), narrow)}</Text>}
               </Box>
             )
           })}
+        </Box>}
+        {ctx && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+          <Box justifyContent="space-between" gap={2}>
+            <Button plain key="tcontext" onPress={() => toggle('context')}>
+              <Text size="footnote" bold>Context {closed.has('context') ? '›' : '⌄'}</Text>
+            </Button>
+            <Text size="caption" dimColor tabular>{ctx.percent}%{closed.has('context') ? '' : ' used  ' + kTokens(ctx.used) + ' / ' + kTokens(ctx.max)}</Text>
+          </Box>
+          {closed.has('context') && <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} />}
+          {!closed.has('context') && <Box flexDirection="column" gap={1}>
+            <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map((c, i) => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${ctxColor(i, false)}"/>`; x += w; return r }).join('') })()}</svg>`} />
+            {ctx.cats.map((c, i) => (
+              <Box key={c.name} justifyContent="space-between" gap={2}>
+                <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor={c.dim || c.free} wrap="truncate-end"><Text color={ctxColor(i, c.dim || c.free)}>■</Text> {c.name}</Text></Box>
+                <Box flexShrink={0}><Text size="caption" dimColor tabular>{kTokens(c.tokens)}{c.dim ? '' : '  ' + c.pct.toFixed(1) + '%'}</Text></Box>
+              </Box>
+            ))}
+            <Box justifyContent="space-between" alignItems="center" gap={2}>
+              <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{ctx.percent >= 80 ? 'Auto-compacts soon' : 'Frees up room'}</Text></Box>
+              <Button key="compact" onPress={async () => { try { await $.session.compact() } catch { $.ui.toast('Cannot compact while a turn is running.') } }}>Compact session</Button>
+            </Box>
+          </Box>}
         </Box>}
         <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between">

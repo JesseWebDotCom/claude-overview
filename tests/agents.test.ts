@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { contextView, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -147,4 +147,23 @@ test('a quiet row hides what it last did', () => {
   expect(staleActivity('Tool call: Bash', 'done')).toBe('')
   expect(staleActivity('Writing a reply', 'working')).toBe('Writing a reply')
   expect(staleActivity('Execute API-12 brief', 'idle')).toBe('Execute API-12 brief')
+})
+
+test('contextView shapes the breakdown', () => {
+  const v = contextView({ context: { percent: 82.4, breakdown: { totalTokens: 160400, maxTokens: 200000, categories: [
+    { name: 'Messages', tokens: 89000, kind: 'used' }, { name: 'Empty', tokens: 0, kind: 'used' },
+    { name: 'MCP tools (deferred)', tokens: 52000, isDeferred: true, kind: 'deferred' }, { name: 'Free space', tokens: 6200, kind: 'free' } ] } } })
+  expect(v?.percent).toBe(82)
+  expect(v?.cats.map(c => c.name)).toEqual(['Messages', 'MCP tools (deferred)', 'Free space'])
+  expect(v?.cats[0].pct).toBeCloseTo(44.5)
+  expect(v?.cats[1].dim).toBe(true)
+  expect(contextView({})).toBeNull()
+})
+test('kTokens', () => {
+  expect(kTokens(160400)).toBe('160k')
+  expect(kTokens(6200)).toBe('6.2k')
+  expect(kTokens(511)).toBe('511')
+})
+test('compact pace captions are short', () => {
+  expect(pace([{ name: 'Weekly', pct: 98, resetsAt: 0 } as any], 0, true).length).toBeLessThan(30)
 })
