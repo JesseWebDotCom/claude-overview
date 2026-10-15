@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { procRows, etimeSec, contextView, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -160,11 +160,21 @@ test('contextView shapes the breakdown', () => {
   const v = contextView({ context: { percent: 82.4, breakdown: { totalTokens: 160400, maxTokens: 200000, categories: [
     { name: 'Messages', tokens: 89000, kind: 'used' }, { name: 'Empty', tokens: 0, kind: 'used' },
     { name: 'MCP tools (deferred)', tokens: 52000, isDeferred: true, kind: 'deferred' }, { name: 'Free space', tokens: 6200, kind: 'free' } ] } } })
-  expect(v?.percent).toBe(80)
+  expect(v?.percent).toBe(45)
+  expect(v?.used).toBe(89000)
   expect(v?.cats.map(c => c.name)).toEqual(['Messages', 'MCP tools (deferred)', 'Free space'])
   expect(v?.cats[0].pct).toBeCloseTo(44.5)
   expect(v?.cats[1].dim).toBe(true)
   expect(contextView({})).toBeNull()
+})
+test('contextView leaves the auto-compact reserve and deferred tools out of used', () => {
+  const v = contextView({ context: { percent: 60, breakdown: { totalTokens: 120000, maxTokens: 200000, categories: [
+    { name: 'System tools', tokens: 40000, kind: 'used' }, { name: 'Messages', tokens: 47000, kind: 'used' },
+    { name: 'MCP tools (deferred)', tokens: 30000, isDeferred: true, kind: 'deferred' },
+    { name: 'Autocompact buffer', tokens: 33000, kind: 'reserved' }, { name: 'Free space', tokens: 80000, kind: 'free' } ] } } })
+  expect(v?.used).toBe(87000)
+  expect(v?.percent).toBe(44)
+  expect(contextNote(v!)).toBe('80k until auto-compact')
 })
 test('kTokens', () => {
   expect(kTokens(160400)).toBe('160k')

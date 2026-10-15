@@ -291,7 +291,9 @@ export function contextView(usage: any): CtxView | null {
     c.color = c.dim || c.free ? '#8a8a8555' : /autocompact/i.test(c.name) ? '#6b728099' : CTX_PALETTE[n++ % CTX_PALETTE.length]
     c.tip = c.dim || c.free ? null : contextAdvice(c.name, c.tokens, max)
   }
-  const used = b?.totalTokens ?? usage?.context?.tokens ?? 0
+  // The engine's total also holds the auto-compact reserve and deferred tools; neither is in the window yet, so only counted rows add up.
+  const counted = cats.filter(c => !c.dim && !c.free && !/autocompact/i.test(c.name)).reduce((s, c) => s + c.tokens, 0)
+  const used = counted > 0 ? counted : (b?.totalTokens ?? usage?.context?.tokens ?? 0)
   const files: CtxFile[] = (b?.memoryFiles ?? []).filter((f: any) => f?.tokens > 0).map((f: any) => ({ name: String(f.path ?? '').split('/').slice(-2).join('/'), type: String(f.type ?? ''), tokens: f.tokens, tip: fileAdvice(f.tokens) })).sort((x: CtxFile, y: CtxFile) => y.tokens - x.tokens)
   return { files, percent: Math.round(max > 0 && used > 0 ? (used / max) * 100 : percent), used, max, cats }
 }
