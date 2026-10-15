@@ -296,11 +296,12 @@ const ASKING_SEC = 3 * 86400
 export function sessionRows(out: string, nowMs: number, currentCli = ''): SessRow[] {
   const rows: SessRow[] = []
   for (const line of out.split('\n')) {
-    const [at, archived, title, cat, detail, needs, model, id, spawn, cli] = line.split('|||')
+    const [at, archived, title, cat, detail, needs, model, id, spawn, cli, pending] = line.split('|||')
     const ms = Number(at)
     if (!id || !Number.isFinite(ms) || archived === 'true') continue
     const ageSec = Math.max(0, (nowMs - ms) / 1000)
-    const asking = cat === 'blocked'
+    // The app writes status_category only some of the time; an unanswered question at the end of the transcript also means it is waiting on you.
+    const asking = cat === 'blocked' || (pending ?? '').trim() === '1'
     if (ageSec > (asking ? ASKING_SEC : RECENT_SEC)) continue
     rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : 'idle', detail: brief(unesc(detail)), needs: brief(unesc(needs)), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli })
   }

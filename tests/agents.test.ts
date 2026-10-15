@@ -202,3 +202,11 @@ test('brief keeps one short sentence', () => {
   expect(brief('pick option 1 (active only when a subagent runs). Then continue with the rest')).toBe('pick option 1')
   expect(brief('x'.repeat(100)).length).toBe(70)
 })
+
+test('sessionRows treats an unanswered question in the transcript as blocked', () => {
+  const now = 1_000_000_000
+  const out = `${now - 60_000}|||false|||Needs answer||||||||||||||claude-sonnet-5-5|||local_a||||||cli-a|||1\n${now - 60_000}|||false|||Quiet||||||||||||||claude-sonnet-5-5|||local_b||||||cli-b|||0`
+  const r = sessionRows(out, now)
+  expect(r.find(x => x.id === 'local_a')?.kind).toBe('blocked')
+  expect(r.find(x => x.id === 'local_b')?.kind).toBe('idle')
+})

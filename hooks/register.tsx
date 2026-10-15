@@ -114,7 +114,15 @@ m=$(g '"model": ?"claude[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 i=$(g '"sessionId": ?"local_[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 p=$(g '"spawnedFrom": ?\{"sessionId": ?"local_[^"]*"' | grep -oE 'local_[^"]*')
 k=$(g '"cliSessionId": ?"[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
-echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k"
+q=0
+if [ -n "$k" ]; then
+tf=$(ls "$HOME"/.claude/projects/*/"$k".jsonl 2>/dev/null | head -1)
+if [ -n "$tf" ]; then
+L=$(tail -n 40 "$tf" | grep -E '"type":"(assistant|user)"' | tail -1)
+if echo "$L" | grep -qE '"type":"tool_use","id":"[^"]*","name":"(AskUserQuestion|ExitPlanMode)"' && ! echo "$L" | grep -q '"type":"tool_result"'; then q=1; fi
+fi
+fi
+echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k|||$q"
 done`
     let me = ''
     try { me = String(await $.session.id()) } catch {}
