@@ -54,6 +54,7 @@ An amber card appears between Context and Sessions only when a folder you are wo
 ## Good to know
 
 - Codex and Claude usage appear only when there is a reading. No Codex, no Codex card.
+- A tmux session started by `wt.sh` (for example a Codex run) shows under the Claude session that owns it, with its run state (FAILED, DIED, TIMEOUT turn the row red). This reads `data-scratch/sessions/*.json` in your repos.
 - Everything is read from your own machine (tmux, `~/.claude`, `~/.codex`). Nothing is sent anywhere.
 - macOS only for now, with tmux installed to see tmux sessions.
 

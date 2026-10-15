@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
+import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
@@ -17,7 +17,6 @@ const _GROUPS: { state: Row['state'][]; label: string }[] = [
   { state: ['done'], label: 'Finished' },
 ]
 const MAX_PANES = 16
-const HEALTH_PATH = 'data-scratch/lane-health/health.json'
 const KIND: Record<Row['kind'], string> = { subagent: 'Subagent', claude: 'Claude session', tmux: 'Other' }
 // Subtle tints per model family; the label stays dim so the pill reads as a tag, not a button.
 const PILL: Record<string, string> = { sonnet: '#4a86e822', opus: '#d9693a22', fable: '#9a6ad922', haiku: '#3aa86a22', gpt: '#3aa86a22' }
@@ -174,11 +173,10 @@ m=$(tail -n 80 "$f" | grep -o '"model":"claude[^"]*"' | tail -1 | cut -d'"' -f4)
 echo "$(stat -f %m "$f") $f|||$d|||$m|||$act|||$e"
 done`
     const subs = subagentRows(await run($, ['sh', '-c', subScript], 5000), nowSec)
-    let health: unknown = null
-    try { health = JSON.parse((await $.fs.read(HEALTH_PATH)).text ?? '') } catch { /* optional */ }
+    const runs = await run($, ['sh', '-c', 'for f in "$HOME"/Developer/github.com/*/*/data-scratch/sessions/*.json; do [ -f "$f" ] && tr -d "\\n" < "$f" && echo; done 2>/dev/null'], 3000)
     const index = await run($, ['sh', '-c', 'tail -n 200 "$HOME/.codex/session_index.jsonl" 2>/dev/null'], 3000)
     const procs = procRows(await run($, ['ps', '-axo', 'pid=,etime=,command='], 3000))
-    const all = overlayHealth([...subs, ...claude, ...expandTitle(tmux, index), ...procs], health, nowMs)
+    const all = overlayRuns([...subs, ...claude, ...expandTitle(tmux, index), ...procs], runs)
     // A busy tmux pane redraws constantly, so its last-activity age is always 0s. For working rows, show how long it has been working since this mod first saw it.
     const keep = new Set(all.map(r => r.key))
     for (const k of [...since.keys()]) if (!keep.has(k)) since.delete(k)
@@ -228,10 +226,10 @@ export const register: Register = on => {
         out.push(depth > 0 ? { ...r, depth } as Row : r)
         for (const c of list) {
           if (c.kind === 'claude' && r.kind === 'claude' && c.spawnParent === r.parent) put(c, depth + 1)
-          else if (c.kind === 'subagent' && r.kind === 'claude' && c.parent === r.parent) put(c, depth + 1)
+          else if ((c.kind === 'subagent' || (c.kind === 'tmux' && !!c.owner)) && r.kind === 'claude' && c.parent === r.parent) put(c, depth + 1)
         }
       }
-      const nested = (r: Row) => (r.kind === 'subagent' && list.some(p => p.kind === 'claude' && p.parent === r.parent)) || (r.kind === 'claude' && !!r.spawnParent && list.some(p => p.kind === 'claude' && p.parent === r.spawnParent))
+      const nested = (r: Row) => ((r.kind === 'subagent' || (r.kind === 'tmux' && !!r.owner)) && list.some(p => p.kind === 'claude' && p.parent === r.parent)) || (r.kind === 'claude' && !!r.spawnParent && list.some(p => p.kind === 'claude' && p.parent === r.spawnParent))
       for (const r of list) if (!nested(r)) put(r, 0)
       return out
     }

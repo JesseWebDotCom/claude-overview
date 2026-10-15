@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -25,12 +25,14 @@ test('claudeRows reads stat lines and skips the own session', () => {
   expect(claudeRows(out, 1000, 'own')).toEqual([expect.objectContaining({ name: 'Robot work', detail: 'my-project', state: 'working', ageSec: 10 })])
 })
 
-test('stale health.json is ignored; fresh one adds detail and problems', () => {
-  const rows = [tmuxRow({ session: 'codex-w1', id: '%1', command: 'node', activity: 0, dead: false }, '', 0)]
-  const h = { checkedAt: '2026-10-15T00:00:00Z', items: { 'lane:codex-w1': { state: 'hung', detail: 'No output for 25 min.', owner: 'codex-w1' } } }
-  const now = Date.parse('2026-10-15T00:01:00Z')
-  expect(overlayHealth(rows, h, now)[0]).toMatchObject({ state: 'problem', detail: 'No output for 25 min.' })
-  expect(overlayHealth(rows, h, now + 3600_000)).toEqual(rows)
+test('a tmux row named in a wt.sh session file gets its owner and run state', () => {
+  const rows = [tmuxRow({ session: 'bot-amber-tiger-codex', id: '%1', command: 'node', activity: 0, dead: false }, '', 0), tmuxRow({ session: 'other', id: '%2', command: 'node', activity: 0, dead: false }, '', 0)]
+  const out = JSON.stringify({ tmux: 'bot-amber-tiger-codex', owner: 'sess-123', runState: 'FAILED' }) + '\nnot json\n' + JSON.stringify({ tmux: null, owner: 'x' })
+  const [a, b] = overlayRuns(rows, out)
+  expect(a).toMatchObject({ state: 'problem', owner: 'sess-123', parent: 'sess-123' })
+  expect(a.detail.startsWith('FAILED · ')).toBe(true)
+  expect(b).toEqual(rows[1])
+  expect(overlayRuns(rows, JSON.stringify({ tmux: 'other', owner: 'codex', runState: 'running' }))[1]).toMatchObject({ owner: undefined, state: rows[1].state })
 })
 
 test('clean drops spinner and icon glyphs', () => {

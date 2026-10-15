@@ -1,9 +1,9 @@
-// Pure rules for the Agents list: turn raw readings (tmux, transcript mtimes, $.agent.list, health.json) into rows.
+// Pure rules for the Agents list: turn raw readings (tmux, transcript mtimes, $.agent.list, wt.sh session files) into rows.
 // Nothing here touches the machine, so tests drive it with literal strings.
 
 export type Kind = 'subagent' | 'claude' | 'tmux'
 export type State = 'needs' | 'working' | 'idle' | 'done' | 'problem'
-export type Row = { key: string; kind: Kind; name: string; state: State; detail: string; model?: string; ageSec: number | null; parent?: string; spawnParent?: string; cwd?: string }
+export type Row = { key: string; kind: Kind; name: string; state: State; detail: string; model?: string; ageSec: number | null; owner?: string; parent?: string; spawnParent?: string; cwd?: string }
 
 const BUSY = /esc to interrupt|Working \(|✻|✽|✶|Thinking|Running…/i
 const NEEDS = /\(y\/n\)|\[y\/N\]|\[Y\/n\]|Do you want to (proceed|allow|run|make)|Would you like to run|Yes, proceed|Press enter to confirm|1\.\s+Yes/i
@@ -135,18 +135,23 @@ export function subagentRows(out: string, nowSec: number): Row[] {
   return rows
 }
 
-// health.json from the lane-health script: used only while fresh, and only to say more about a tmux row.
-export function overlayHealth(rows: Row[], health: unknown, nowMs: number, maxAgeMs = 5 * 60_000): Row[] {
-  const h = health as { checkedAt?: string; items?: Record<string, { state?: string; detail?: string; owner?: string }> } | null
-  const at = h?.checkedAt ? Date.parse(h.checkedAt) : NaN
-  if (!h?.items || !Number.isFinite(at) || nowMs - at > maxAgeMs) return rows
-  const by = new Map<string, { state?: string; detail?: string }>()
-  for (const [k, v] of Object.entries(h.items)) by.set(v.owner ?? k.replace(/^lane:/, ''), v)
+// One JSON object per line from `data-scratch/sessions/*.json` (written by `wt.sh start` and `wt.sh run`): a tmux row whose
+// session name matches is owned by that Claude session (so it nests under it) and carries the run's state.
+export function overlayRuns(rows: Row[], out: string): Row[] {
+  const by = new Map<string, { owner?: string; runState?: string }>()
+  for (const line of out.split('\n')) {
+    try {
+      const j = JSON.parse(line) as { tmux?: string | null; owner?: string; runState?: string }
+      if (j.tmux) by.set(j.tmux, j)
+    } catch { /* not a session file */ }
+  }
   return rows.map(r => {
     const it = r.kind === 'tmux' ? by.get(r.name) : undefined
     if (!it) return r
-    const state: State = it.state === 'hung' || it.state === 'credits' ? 'problem' : it.state === 'needs-you' || it.state === 'waiting' ? 'needs' : r.state
-    return { ...r, state, detail: it.detail ? clean(it.detail).slice(0, 160) : r.detail }
+    const owner = it.owner && it.owner !== 'codex' ? it.owner : undefined
+    const run = it.runState ?? ''
+    const state: State = /^(FAILED|DIED|TIMEOUT)$/.test(run) ? 'problem' : r.state
+    return { ...r, state, owner, parent: owner ?? r.parent, detail: run && run !== 'running' ? run + ' · ' + r.detail : r.detail }
   })
 }
 
