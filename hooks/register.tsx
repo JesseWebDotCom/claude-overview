@@ -80,8 +80,8 @@ fi
 command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits 2>/dev/null | sed 's/, /|/g; s/^/gpu=/'
 true
 ps -A -o %cpu=,rss=,comm= 2>/dev/null | awk '{c=$1; r=$2; $1=""; $2=""; sub(/^ +/,""); n=$0; sub(/.*\//,"",n); sub(/ \(.*/,"",n); C[n]+=c; R[n]+=r} END{for(n in C) printf "%s|%.0f|%d\n", n, C[n]/ncpu, R[n]*1024}' ncpu="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)" > /tmp/ov-top.$$
-echo "topcpu=$(sort -t'|' -k2 -nr /tmp/ov-top.$$ | head -3 | awk -F'|' '$2>0{printf "%s%s:%s", s, $1, $2; s=";"}')"
-echo "topmem=$(sort -t'|' -k3 -nr /tmp/ov-top.$$ | head -3 | awk -F'|' '{printf "%s%s:%s", s, $1, $3; s=";"}')"
+echo "topcpu=$(sort -t'|' -k2 -nr /tmp/ov-top.$$ | head -5 | awk -F'|' '$2>0{printf "%s%s:%s", s, $1, $2; s=";"}')"
+echo "topmem=$(sort -t'|' -k3 -nr /tmp/ov-top.$$ | head -5 | awk -F'|' '{printf "%s%s:%s", s, $1, $3; s=";"}')"
 rm -f /tmp/ov-top.$$`
 // Cards the person hid, by id; read from the plugin's /config toggles every poll.
 const CARDS: [string, string][] = [['subscriptions', 'Subscriptions'], ['system', 'System'], ['context', 'Context'], ['changes', 'Changes'], ['sessions', 'Sessions'], ['agents', 'Agents']]
