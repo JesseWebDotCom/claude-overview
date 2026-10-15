@@ -101,7 +101,7 @@ async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void
   for (const d of [...dirty.keys()]) if (!cwds.includes(d)) dirty.delete(d)
   const want = [...new Set(cwds.filter(Boolean))].filter(d => nowMs - (dirty.get(d)?.at ?? 0) >= DIRTY_MS).slice(0, 24)
   if (want.length > 0) {
-    const script = 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); a=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" diff HEAD --numstat 2>/dev/null | awk "{a+=\\$1;r+=\\$2} END{print a+0\\\"|||\\\"r+0}"); echo "$d|||$n|||${a:-0|||0}"; done'
+    const script = 'for d; do b=$(git -C "$d" merge-base HEAD origin/main 2>/dev/null || echo HEAD); n=$( (GIT_OPTIONAL_LOCKS=0 git -C "$d" diff "$b" --name-only 2>/dev/null; GIT_OPTIONAL_LOCKS=0 git -C "$d" ls-files --others --exclude-standard 2>/dev/null) | sort -u | grep -c . ); a=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" diff "$b" --numstat 2>/dev/null | awk "{a+=\\$1;r+=\\$2} END{print a+0\\\"|||\\\"r+0}"); echo "$d|||$n|||${a:-0|||0}"; done'
     const out = await run($, ['sh', '-c', script, 'sh', ...want], 8000)
     for (const line of out.split('\n')) {
       const [d, n, add, del] = line.split('|||')
