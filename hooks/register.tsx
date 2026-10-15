@@ -284,7 +284,7 @@ export const register: Register = on => {
     )
     return (
       <Box flexDirection="column" paddingX={1} paddingY={1} gap={1}>
-        {(claudeLim.length > 0 || codexLim.length > 0) && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1}>
+        {(claudeLim.length > 0 || codexLim.length > 0) && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Text size="footnote" bold>Subscriptions</Text>
           {[['Claude', claudeLim], ['Codex', codexLim]].map(([who, list]: any) => {
             if (list.length === 0) return null
@@ -292,7 +292,7 @@ export const register: Register = on => {
               `<rect y="${i * 6}" width="700" height="4" rx="2" fill="#484f58" fill-opacity="0.5"/><rect y="${i * 6}" width="${Math.max(4, Math.min(100, l.pct) * 7)}" height="4" rx="2" fill="url(#h)"/>`).join('')
             const text = list.slice(0, 2).map((l: Limit) => (l.name === '5-hour' ? '5h' : l.name === 'Weekly' ? 'Wk' : l.name) + ' ' + Math.round(l.pct) + '%').join(' · ')
             return (
-              <Box key={who} flexDirection="column" marginTop={who === 'Codex' && claudeLim.length > 0 ? 1 : 0}>
+              <Box key={who} flexDirection="column">
                 <Box justifyContent="space-between" gap={2}>
                   <Box gap={0} alignItems="center">
                     <Svg width={14} height={14} alt={who} source={ICON[who]} />
@@ -306,7 +306,7 @@ export const register: Register = on => {
             )
           })}
         </Box>}
-        {ctx && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1}>
+        {ctx && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
             <Button plain key="tcontext" onPress={() => toggle('context')}>
               <Text size="footnote" bold>Context {closed.has('context') ? '›' : '⌄'}</Text>
@@ -346,7 +346,7 @@ export const register: Register = on => {
             </Box>}
           </Box>}
         </Box>}
-        {dirtyBrief(dirty) !== '' && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1}>
+        {dirtyBrief(dirty) !== '' && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
             <Text size="footnote" bold><Text color="#e3a008">± </Text>Uncommitted changes</Text>
           </Box>
