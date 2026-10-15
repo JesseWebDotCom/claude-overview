@@ -1,6 +1,6 @@
 # Overview
 
-A live side pane for Claude Code. It shows how much of your Claude and Codex limits you have used, how full this session's context is, and every agent running right now: your Claude sessions, their subagents, and Codex or any other tmux session.
+A live side pane for Claude Code. It shows how much of your Claude and Codex limits you have used, what is filling this session's context (with a one-click Compact), which of your sessions are blocked waiting on you, and every agent running right now: subagents, spawned sessions, and Codex or any other tmux session.
 
 <img src="assets/overview.gif" alt="Overview pane" width="450">
 

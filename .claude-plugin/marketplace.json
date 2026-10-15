@@ -1,12 +1,14 @@
 {
   "name": "claude-overview",
-  "description": "Overview: a live Claude Code side pane for usage limits and running agents",
-  "owner": { "name": "Jesse Torres" },
+  "description": "Overview: a live Claude Code side pane for usage, context, sessions and running agents",
+  "owner": {
+    "name": "Jesse Torres"
+  },
   "plugins": [
     {
       "name": "overview",
       "source": "./",
-      "description": "A live side pane with your Claude and Codex usage limits and every agent running."
+      "description": "A live Claude Code side pane: Claude and Codex usage limits, context breakdown with tips and one-click compact, sessions waiting on you, and every running agent."
     }
   ]
 }
