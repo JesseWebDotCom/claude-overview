@@ -93,7 +93,7 @@ async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void
       if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, own: o === '1', at: nowMs })
     }
   }
-  try { const t = dirtyBrief(new Map([...dirty.entries()].filter(([d]) => cwds.includes(d)))); $.ui.status?.(t === '' ? undefined : t) } catch { /* no status line on this surface */ }
+  try { const t = dirtyBrief(new Map([...dirty.entries()].filter(([d]) => cwds.includes(d)))); $.ui.status(t === '' ? undefined : t) } catch { /* no status line on this surface */ }
 }
 
 export async function poll($: any): Promise<void> {
