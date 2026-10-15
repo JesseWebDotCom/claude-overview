@@ -45,11 +45,15 @@ The Context card sits under your usage. It is one bar and one line, and opens in
 
 ## Changes
 
-<img src="assets/changes-card.png" alt="Changes card" width="450">
+<img src="assets/changes-card.png" alt="Changes card, collapsed" width="450">
 
 The Changes card sits between Context and Sessions and appears only when a folder you are working in has changes. The header always shows the total: how many files, lines added in green and lines removed in red, plus an **Open** button that asks Claude to open its own Changes pane. Like Claude's own count, a folder is measured against `origin/main` for its branch plus anything uncommitted.
 
-The card is collapsed by default. Click the title to list one row per folder, biggest first, each with its own +/- and a **Create PR** button that opens a pull request for that folder. A failed Open or Create PR shows its reason in red under the rows. The card disappears once everything is committed and pushed. It checks with `git`, at most every 10 seconds, and never takes a git lock. The same summary is pinned in the status line under the prompt.
+The card is collapsed by default. Click the title to list one row per folder, biggest first, each with its own +/- and a **Create PR** button that opens a pull request for that folder.
+
+<img src="assets/changes-expanded.png" alt="Changes card expanded" width="450">
+
+ A failed Open or Create PR shows its reason in red under the rows. The card disappears once everything is committed and pushed. It checks with `git`, at most every 10 seconds, and never takes a git lock. The same summary is pinned in the status line under the prompt.
 
 <img src="assets/changes-status.png" alt="Changes summary in the status line" width="400">
 
