@@ -65,7 +65,7 @@ async function compact($: any): Promise<void> {
 
 // A session stays "active" for a grace period after it was last seen working: a transcript is quiet between tool calls, and the
 // card is rebuilt several times per poll, so reading live state once would make the green bar, square and word blink.
-const LIVE_GRACE_MS = 20_000
+const LIVE_GRACE_MS = 6_000
 const liveSeen = new Map<string, number>()
 const liveNow = (nowMs: number): Set<string> => {
   for (const [id, at] of liveSeen) if (nowMs - at > LIVE_GRACE_MS) liveSeen.delete(id)
