@@ -40,23 +40,23 @@ let claudeLim: Limit[] = []
 let codexLim: Limit[] = []
 let ctx: CtxView | null = null
 let ctxMsg = ''
-let ctxMsgAt = 0
-let clicks = 0
+let compactingSince = 0 // 0 = idle; -1 = stamp at next draw
+let compactFrom = 0
 const CTX_COLOR = ['#4a86e8', '#d97757', '#2fa36b', '#d9a21b']
 const ctxColor = (i: number, dim: boolean): string => dim ? '#8a8a8555' : CTX_COLOR[i] ?? '#8a8a85'
 // Under this many cells the pane uses shorter captions and one truncated line per row.
 const NARROW_COLS = 80
 
-// -1 means "stamp me at the next draw", so a press needs no clock call.
-const say = (m: string): void => { ctxMsg = m; ctxMsgAt = -1 }
+const COMPACT_MAX_MS = 240000
 async function compact($: any): Promise<void> {
+  compactFrom = ctx?.used ?? 0
+  compactingSince = -1
+  void $.ui.invalidate('ui.render')
   try {
     await $.command.run({ command: 'compact' })
-    say('Compacted.')
-    void poll($)
   } catch (err) {
-    const m = String((err as any)?.message ?? err)
-    say('Compact failed: ' + m.slice(0, 80))
+    compactingSince = 0
+    ctxMsg = 'Compact failed: ' + String((err as any)?.message ?? err).slice(0, 80)
   }
   void $.ui.invalidate('ui.render')
 }
@@ -101,6 +101,8 @@ done`
     try { claudeLim = claudeLimits((await $.session.usage()).rateLimits ?? []) } catch { /* not on a subscription */ }
     codexLim = codexLimits(await run($, ['sh', '-c', 'for f in $(ls -t $(find "$HOME/.codex/sessions" -name "*.jsonl" -mmin -1440 2>/dev/null) 2>/dev/null | head -4); do grep -h "rate_limits" "$f" | tail -1; done | head -1'], 5000))
     try { ctx = contextView(await $.session.usage({ breakdown: 'summary', columns: 80 })) } catch { /* no session bound */ }
+    // The command resolves when /compact is queued, so finish on the real signal: the context shrank.
+    if (compactingSince > 0 && ctx && compactFrom > 0 && ctx.used < compactFrom * 0.9) { compactingSince = 0; ctxMsg = 'Compacted: ' + kTokens(compactFrom) + ' → ' + kTokens(ctx.used) }
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
 L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1)
@@ -154,7 +156,9 @@ export const register: Register = on => {
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button, Svg } = $.ui.resolve(e)
     const now = await $.clock.now()
-    if (ctxMsgAt === -1) ctxMsgAt = now
+    if (compactingSince === -1) compactingSince = now
+    if (compactingSince > 0 && now - compactingSince > COMPACT_MAX_MS) { compactingSince = 0; ctxMsg = '' }
+    const compacting = compactingSince !== 0
     const drift = polledAt > 0 ? Math.max(0, (now - polledAt) / 1000) : 0
     const pulse = Math.floor(now / TICK_MS) % 2 === 0
     const cols = e.viewport?.columns ?? 0
@@ -257,9 +261,9 @@ export const register: Register = on => {
             <Box flexGrow={1} flexShrink={1} minWidth={0}>
               {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map((c, i) => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${ctxColor(i, false)}"/>`; x += w; return r }).join('') })()}</svg>`} />}
             </Box>
-            <Button plain key="compact" onPress={() => { clicks++; say('Compacting… (click ' + clicks + ')'); void $.ui.invalidate('ui.render'); void compact($) }}><Text size="caption" bold>Compact</Text></Button>
+            {compacting ? <Text size="caption" dimColor>Compact</Text> : <Button plain key="compact" onPress={() => { ctxMsg = ''; void compact($) }}><Text size="caption" bold>Compact</Text></Button>}
           </Box>
-          {ctxMsg !== '' && now - ctxMsgAt < 8000 && <Text size="caption" dimColor wrap="truncate-end">{ctxMsg}</Text>}
+          <Text size="caption" dimColor wrap="truncate-end">{compacting ? 'Compacting' + '.'.repeat(1 + (Math.floor(now / 1000) % 3)) + ' summarizing the conversation' : ctxMsg !== '' ? ctxMsg : kTokens(ctx.used) + ' of ' + kTokens(ctx.max) + ' used · ' + kTokens(Math.max(0, ctx.max - ctx.used)) + ' left'}</Text>
           {!closed.has('context') && <Box flexDirection="column" gap={1}>
             {ctx.cats.map((c, i) => (
               <Box key={c.name} justifyContent="space-between" gap={2}>

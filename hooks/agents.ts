@@ -243,5 +243,5 @@ export function contextView(usage: any): CtxView | null {
     name: String(c.name), tokens: c.tokens, pct: max > 0 ? (c.tokens / max) * 100 : 0, dim: c.isDeferred === true || c.kind === 'deferred', free: c.kind === 'free',
   }))
   const used = b?.totalTokens ?? usage?.context?.tokens ?? 0
-  return { percent: Math.round(percent), used, max, cats }
+  return { percent: Math.round(max > 0 && used > 0 ? (used / max) * 100 : percent), used, max, cats }
 }

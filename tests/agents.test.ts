@@ -153,7 +153,7 @@ test('contextView shapes the breakdown', () => {
   const v = contextView({ context: { percent: 82.4, breakdown: { totalTokens: 160400, maxTokens: 200000, categories: [
     { name: 'Messages', tokens: 89000, kind: 'used' }, { name: 'Empty', tokens: 0, kind: 'used' },
     { name: 'MCP tools (deferred)', tokens: 52000, isDeferred: true, kind: 'deferred' }, { name: 'Free space', tokens: 6200, kind: 'free' } ] } } })
-  expect(v?.percent).toBe(82)
+  expect(v?.percent).toBe(80)
   expect(v?.cats.map(c => c.name)).toEqual(['Messages', 'MCP tools (deferred)', 'Free space'])
   expect(v?.cats[0].pct).toBeCloseTo(44.5)
   expect(v?.cats[1].dim).toBe(true)
