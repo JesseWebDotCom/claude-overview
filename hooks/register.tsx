@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
+import { paneSessions, dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
@@ -105,7 +105,8 @@ export async function poll($: any): Promise<void> {
   try {
     const nowMs = await $.clock.now()
     const nowSec = Math.floor(nowMs / 1000)
-    const panes = parsePanes(await run($, ['tmux', 'list-panes', '-a', '-F', '#{session_name}|||#{pane_id}|||#{pane_current_command}|||#{window_activity}|||#{pane_dead}'])).slice(0, MAX_PANES)
+    const paneOut = await run($, ['tmux', 'list-panes', '-a', '-F', '#{session_name}|||#{pane_id}|||#{pane_current_command}|||#{window_activity}|||#{pane_dead}|||#{pane_pid}'])
+    const panes = parsePanes(paneOut).slice(0, MAX_PANES)
     const tmux = await Promise.all(panes.map(async p => tmuxRow(p, await run($, ['tmux', 'capture-pane', '-p', '-t', p.id, '-S', '-14']), nowSec)))
     const claudeScript = String.raw`for f in $(find "$HOME/.claude/projects" -maxdepth 2 -name "*.jsonl" -mmin -360 2>/dev/null); do
 t=$(grep -o '"customTitle":"[^"]*"' "$f" | tail -1 | cut -d'"' -f4)
@@ -175,7 +176,7 @@ done`
     const subs = subagentRows(await run($, ['sh', '-c', subScript], 5000), nowSec)
     const runs = await run($, ['sh', '-c', 'for f in "$HOME"/Developer/github.com/*/*/data-scratch/sessions/*.json; do [ -f "$f" ] && tr -d "\\n" < "$f" && echo; done 2>/dev/null'], 3000)
     const index = await run($, ['sh', '-c', 'tail -n 200 "$HOME/.codex/session_index.jsonl" 2>/dev/null'], 3000)
-    const procs = procRows(await run($, ['ps', '-axo', 'pid=,etime=,command='], 3000))
+    const procs = procRows(await run($, ['ps', '-axo', 'pid=,ppid=,etime=,command='], 3000), paneSessions(paneOut))
     const all = overlayRuns([...subs, ...claude, ...expandTitle(tmux, index), ...procs], runs)
     // A busy tmux pane redraws constantly, so its last-activity age is always 0s. For working rows, show how long it has been working since this mod first saw it.
     const keep = new Set(all.map(r => r.key))

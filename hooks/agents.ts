@@ -25,18 +25,28 @@ export function paneState(text: string): State {
   return 'idle'
 }
 
-export type Pane = { session: string; id: string; command: string; activity: number; dead: boolean }
+export type Pane = { session: string; id: string; command: string; activity: number; dead: boolean; pid: number }
 
 export function parsePanes(out: string): Pane[] {
   const seen = new Set<string>()
   const panes: Pane[] = []
   for (const line of out.split('\n')) {
-    const [session, id, command, activity, dead] = line.split('|||')
+    const [session, id, command, activity, dead, pid] = line.split('|||')
     if (!session || !id || seen.has(session) || /^-?(zsh|bash|sh|fish|dash)$/.test(command ?? '')) continue
     seen.add(session)
-    panes.push({ session, id, command: command ?? '', activity: Number(activity) || 0, dead: dead === '1' })
+    panes.push({ session, id, command: command ?? '', activity: Number(activity) || 0, dead: dead === '1', pid: Number(pid) || 0 })
   }
   return panes
+}
+
+// Pane pid to session name for every pane, shells included: a headless run's pane command is its wrapper shell.
+export function paneSessions(out: string): Map<number, string> {
+  const m = new Map<number, string>()
+  for (const line of out.split('\n')) {
+    const [session, , , , , pid] = line.split('|||')
+    if (session && Number(pid)) m.set(Number(pid), session)
+  }
+  return m
 }
 
 export function tmuxRow(p: Pane, captured: string, nowSec: number): Row {
@@ -54,18 +64,29 @@ export function etimeSec(s: string): number | null {
   return m ? Number(m[1] ?? 0) * 86400 + Number(m[2] ?? 0) * 3600 + Number(m[3]) * 60 + Number(m[4]) : null
 }
 
-// Lines of `<pid> <etime> <command line>` from `ps -axo pid=,etime=,command=`. A headless `codex exec` run (started from a
-// shell, not tmux) has no pane or transcript the other readings can see, so the process itself is the row. Only the codex
-// binary counts, not the shell that wraps it, and an interactive `codex` in tmux is already a tmux row.
-export function procRows(out: string): Row[] {
-  const rows: Row[] = []
+// Lines of `<pid> <ppid> <etime> <command line>` from `ps -axo pid=,ppid=,etime=,command=`. A headless `codex exec` run (started
+// from a shell, not tmux) has no pane or transcript the other readings can see, so the process itself is the row. A run whose
+// parent chain reaches a tmux pane process (`paneSessions`: pane pid to session name) is shown under that session's name,
+// because the pane's own command is the wrapper shell and so has no tmux row. Only the codex binary counts, not the shell
+// that wraps it, and an interactive `codex` in tmux is already a tmux row.
+export function procRows(out: string, paneSessions: Map<number, string> = new Map()): Row[] {
+  const parsed: { pid: number; ppid: number; etime: string; cmd: string }[] = []
   for (const line of out.split('\n')) {
-    const m = /^\s*(\d+)\s+(\S+)\s+(.+)$/.exec(line)
-    if (!m) continue
-    const args = m[3].split(/\s+/)
+    const m = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/.exec(line)
+    if (m) parsed.push({ pid: Number(m[1]), ppid: Number(m[2]), etime: m[3], cmd: m[4] })
+  }
+  const parent = new Map(parsed.map(p => [p.pid, p.ppid]))
+  const paneOf = (pid: number) => {
+    for (let n = parent.get(pid), i = 0; n && i < 20; n = parent.get(n), i++) if (paneSessions.has(n)) return paneSessions.get(n)
+    return undefined
+  }
+  const rows: Row[] = []
+  for (const p of parsed) {
+    const args = p.cmd.split(/\s+/)
     if ((args[0].split('/').pop() ?? '') !== 'codex' || args[1] !== 'exec') continue
-    const file = /([^/\s]+)\.(?:md|txt)\b/.exec(m[3])
-    rows.push({ key: 'proc:' + m[1], kind: 'tmux', name: file ? 'codex exec ' + file[1] : 'codex exec', state: 'working', model: undefined, detail: 'Codex run (no tmux session)', ageSec: etimeSec(m[2]) })
+    const session = paneOf(p.pid)
+    const file = /([^/\s]+)\.(?:md|txt)\b/.exec(p.cmd)
+    rows.push({ key: 'proc:' + p.pid, kind: 'tmux', name: session ?? (file ? 'codex exec ' + file[1] : 'codex exec'), state: 'working', model: undefined, detail: session ? 'Codex run' : 'Codex run (no tmux session)', ageSec: etimeSec(p.etime) })
   }
   return rows
 }

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { paneSessions, procRows,etimeSec, contextView, contextNote, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -254,13 +254,17 @@ test('dirtyBrief lists the dirtiest folders, three at most', async () => {
 
 test('procRows lists a headless codex exec, not its shell wrapper or an interactive codex', () => {
   const out = [
-    '61037 05:12 codex exec --add-dir /x/y Read /x/y/BRIEF-maingate.md and do it exactly',
-    '61035 05:12 zsh -c codex exec --add-dir /x/y Read /x/y/BRIEF-maingate.md > log',
-    '70000 01:00 /opt/bin/codex',
-    '70001 1-02:03:04 /opt/bin/codex exec do the thing',
+    '61037 1 05:12 codex exec --add-dir /x/y Read /x/y/BRIEF-maingate.md and do it exactly',
+    '61035 1 05:12 zsh -c codex exec --add-dir /x/y Read /x/y/BRIEF-maingate.md > log',
+    '70000 1 01:00 /opt/bin/codex',
+    '70001 1 1-02:03:04 /opt/bin/codex exec do the thing',
+    '80001 1 02:00 tmux new-session -d -s s',
+    '80002 80001 02:00 zsh -c codex exec -',
+    '80003 80002 02:00 codex exec -C /w -',
   ].join('\n')
-  const rows = procRows(out)
-  expect(rows).toHaveLength(2)
+  const rows = procRows(out, new Map([[80002, 'bot-x-codex']]))
+  expect(rows).toHaveLength(3)
+  expect(rows[2]).toMatchObject({ key: 'proc:80003', name: 'bot-x-codex', detail: 'Codex run' })
   expect(rows[0]).toMatchObject({ key: 'proc:61037', name: 'codex exec BRIEF-maingate', state: 'working', ageSec: 312 })
   expect(rows[1]).toMatchObject({ name: 'codex exec', ageSec: 93784 })
   expect(typeOf(rows[0])).toBe('codex')
