@@ -81,7 +81,7 @@ export function dirtyBrief(map: Map<string, { n: number }>): string {
   const items = [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n)
   if (items.length === 0) return ''
   const shown = items.slice(0, 3).map(([d, v]) => (d.split('/').pop() || d) + ' ' + v.n)
-  return '± ' + shown.join(' · ') + (items.length > 3 ? ' · +' + (items.length - 3) + ' more' : '')
+  return '± uncommitted · ' + shown.join(' · ') + (items.length > 3 ? ' · +' + (items.length - 3) + ' more' : '')
 }
 async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
   const want = [...new Set(cwds.filter(Boolean))].filter(d => nowMs - (dirty.get(d)?.at ?? 0) >= DIRTY_MS).slice(0, 24)
