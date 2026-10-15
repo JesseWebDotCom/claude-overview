@@ -112,9 +112,11 @@ d=$(g '"status_detail": ?"([^"\\]|\\.)*"' | sed -E 's/^"status_detail": ?"//;s/"
 n=$(g '"needs_action": ?"([^"\\]|\\.)*"' | sed -E 's/^"needs_action": ?"//;s/"$//')
 m=$(g '"model": ?"claude[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 i=$(g '"sessionId": ?"local_[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
-echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i"
+p=$(g '"spawnedFrom": ?\{"sessionId": ?"local_[^"]*"' | grep -oE 'local_[^"]*')
+k=$(g '"cliSessionId": ?"[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
+echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k"
 done`
-    sess = sessionRows(await run($, ['sh', '-c', sessScript], 6000), nowMs)
+    sess = sessionRows(await run($, ['sh', '-c', sessScript], 6000), nowMs, $.session.id())
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
 L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1)
@@ -313,11 +315,11 @@ export const register: Register = on => {
           {closed.has('sessions') && sess.filter(x => x.kind === 'blocked').slice(0, 2).map(x => (
             <Text key={x.id} size="caption" color="#d9b84a" wrap="truncate-end">{x.title}: {x.needs !== '' ? x.needs : x.detail}</Text>
           ))}
-          {!closed.has('sessions') && sess.slice(0, 8).map(x => (
-            <Box key={x.id} flexDirection="column">
+          {!closed.has('sessions') && sess.slice(0, 10).map(x => (
+            <Box key={x.id} flexDirection="column" marginLeft={x.depth * 2}>
               <Box justifyContent="space-between" gap={2}>
                 <Box flexShrink={1} minWidth={0} gap={1}>
-                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#2fa36b' : '#8a8a85'}>{x.kind === 'idle' ? '□' : '■'}</Text></Box>
+                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#2fa36b' : '#8a8a85'}>{x.current ? '★' : x.depth > 0 ? '↳' : x.kind === 'idle' ? '□' : '■'}</Text></Box>
                   <Box flexShrink={1} minWidth={0}><Text size="footnote" bold wrap="truncate-end">{x.title}</Text></Box>
                 </Box>
                 <Box gap={1} flexShrink={0}>

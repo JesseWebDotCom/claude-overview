@@ -189,3 +189,11 @@ test('sessionRows ranks asking first, then active, then recent; drops archived a
   expect(r[0].model).toBe('Sonnet 5.5')
   expect(sessionSummary(r)).toBe('1 blocked · 1 active · 1 idle')
 })
+
+test('sessionRows nests sub-sessions under the session that started them', () => {
+  const now = 1_000_000_000_000
+  const line = (ageMin: number, title: string, cat: string, id: string, spawn: string) => [now - ageMin * 60000, 'false', title, cat, '', '', 'claude-sonnet-5-5', id, spawn].join('|||')
+  const out = [line(1, 'Quiet', 'completed', 'a', ''), line(30, 'Parent', 'completed', 'p', ''), line(40, 'Child', 'blocked', 'c', 'p'), line(2, 'Orphan', 'completed', 'o', 'gone')].join('\n')
+  const r = sessionRows(out, now)
+  expect(r.map(x => x.id + ':' + x.depth)).toEqual(['p:0', 'c:1', 'a:0', 'o:0'])
+})

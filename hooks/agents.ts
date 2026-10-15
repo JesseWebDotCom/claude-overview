@@ -282,26 +282,39 @@ export function contextNote(c: CtxView): string {
 
 // Desktop sessions (one json per session): what is asking you, what is running, what ran lately.
 export type SessKind = 'blocked' | 'active' | 'idle'
-export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number }
+export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number; spawn: string; depth: number; cli: string; current: boolean }
 
 const unesc = (s: string): string => s.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\./g, '').trim()
 const ACTIVE_SEC = 300
 const RECENT_SEC = 86400
 const ASKING_SEC = 3 * 86400
 
-export function sessionRows(out: string, nowMs: number): SessRow[] {
+export function sessionRows(out: string, nowMs: number, currentCli = ''): SessRow[] {
   const rows: SessRow[] = []
   for (const line of out.split('\n')) {
-    const [at, archived, title, cat, detail, needs, model, id] = line.split('|||')
+    const [at, archived, title, cat, detail, needs, model, id, spawn, cli] = line.split('|||')
     const ms = Number(at)
     if (!id || !Number.isFinite(ms) || archived === 'true') continue
     const ageSec = Math.max(0, (nowMs - ms) / 1000)
     const asking = cat === 'blocked'
     if (ageSec > (asking ? ASKING_SEC : RECENT_SEC)) continue
-    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : ageSec < ACTIVE_SEC ? 'active' : 'idle', detail: unesc(detail), needs: unesc(needs), model: modelName(model ?? ''), ageSec })
+    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : ageSec < ACTIVE_SEC ? 'active' : 'idle', detail: unesc(detail), needs: unesc(needs), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli })
   }
   const rank: Record<SessKind, number> = { blocked: 0, active: 1, idle: 2 }
-  return rows.sort((p, q) => rank[p.kind] - rank[q.kind] || p.ageSec - q.ageSec)
+  const byId = new Map(rows.map(r => [r.id, r]))
+  const rootOf = (r: SessRow): SessRow => { let cur = r; for (let n = 0; n < 8; n++) { const p = byId.get(cur.spawn); if (!p || p === cur) break; cur = p } return cur }
+  // A session that started others stays with them: a tree ranks by its most urgent member, children follow their parent.
+  const trees = new Map<string, SessRow[]>()
+  for (const r of rows) { const k = rootOf(r).id; trees.set(k, [...(trees.get(k) ?? []), r]) }
+  const best = (m: SessRow[]) => Math.min(...m.map(r => rank[r.kind]))
+  const recency = (m: SessRow[]) => Math.min(...m.map(r => r.ageSec))
+  const res: SessRow[] = []
+  const put = (r: SessRow, depth: number, members: SessRow[]) => {
+    res.push({ ...r, depth })
+    for (const c of members.filter(m => m.spawn === r.id && m !== r).sort((p, q) => rank[p.kind] - rank[q.kind] || p.ageSec - q.ageSec)) put(c, depth + 1, members)
+  }
+  for (const [k, members] of [...trees.entries()].sort((p, q) => best(p[1]) - best(q[1]) || recency(p[1]) - recency(q[1]))) put(byId.get(k)!, 0, members)
+  return res
 }
 
 export function sessionSummary(rows: SessRow[]): string {
