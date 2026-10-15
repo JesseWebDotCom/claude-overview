@@ -310,3 +310,10 @@ test('remoteIds reads remote-control sessions from tool results', () => {
   expect([...remoteIds({ sessionId: 'local_c', remoteControlState: 'on' })]).toEqual(['local_c'])
   expect(remoteIds('nope').size).toBe(0)
 })
+
+test('changesSummary totals every folder in one short line', async () => {
+  const { changesSummary } = await import('../hooks/register')
+  expect(changesSummary(new Map([['/a/x', { n: 8, add: 100, del: 20 }], ['/a/y', { n: 3, add: 5, del: 1 }]]))).toBe('2 folders · 11 files +105 −21')
+  expect(changesSummary(new Map([['/a/x', { n: 2, add: 4, del: 0 }]]))).toBe('2 files +4 −0')
+  expect(changesSummary(new Map([['/a/x', { n: 0 }]]))).toBe('')
+})

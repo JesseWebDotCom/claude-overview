@@ -111,7 +111,7 @@ const liveNow = (nowMs: number): Set<string> => {
   for (const [id, at] of liveSeen) if (nowMs - at > LIVE_GRACE_MS) liveSeen.delete(id)
   return new Set(liveSeen.keys())
 }
-const closed = new Set<string>(['inactive', 'context', 'sessions'])
+const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
   try {
@@ -127,6 +127,15 @@ const DIRTY_MS = 10000
 const dirty = new Map<string, { n: number; add: number; del: number; at: number }>()
 // The card rows: every folder with changes, biggest first, at most six.
 // The line pinned under the prompt: every folder with changes, biggest first, at most three.
+// One short line for every folder with changes: "3 folders · 379 files +5309 −244".
+export function changesSummary(map: Map<string, { n: number; add?: number; del?: number }>): string {
+  const rows = [...map.values()].filter(v => v.n > 0)
+  if (rows.length === 0) return ''
+  const files = rows.reduce((a, v) => a + v.n, 0)
+  const add = rows.reduce((a, v) => a + (v.add ?? 0), 0)
+  const del = rows.reduce((a, v) => a + (v.del ?? 0), 0)
+  return (rows.length > 1 ? rows.length + ' folders · ' : '') + files + ' files +' + add + ' −' + del
+}
 export function dirtyBrief(map: Map<string, { n: number }>): string {
   const items = [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n)
   if (items.length === 0) return ''
@@ -148,7 +157,7 @@ async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void
       if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, add: Number(add) || 0, del: Number(del) || 0, at: nowMs })
     }
   }
-  try { const t = dirtyBrief(new Map([...dirty.entries()].filter(([d]) => cwds.includes(d)))); $.ui.status(t === '' ? undefined : t) } catch { /* no status line on this surface */ }
+  try { const t = changesSummary(new Map([...dirty.entries()].filter(([d]) => cwds.includes(d)))); $.ui.status(t === '' ? undefined : t) } catch { /* no status line on this surface */ }
 }
 
 export async function poll($: any): Promise<void> {
@@ -406,10 +415,15 @@ export const register: Register = on => {
         </Box>}
         {dirtyStats(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" alignItems="center">
-            <Text size="footnote" bold>Changes</Text>
-            <Button key="diff-open" onPress={() => { void showChanges($) }}><Text size="footnote" bold>Open</Text></Button>
+            <Button plain key="tchanges" onPress={() => toggle('changes')}>
+              <Text size="footnote" bold>Changes {closed.has('changes') ? '›' : '⌄'}</Text>
+            </Button>
+            <Box gap={2} alignItems="center" flexShrink={1} minWidth={0}>
+              <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{changesSummary(dirty)}</Text></Box>
+              <Button key="diff-open" onPress={() => { void showChanges($) }}><Text size="footnote" bold>Open</Text></Button>
+            </Box>
           </Box>
-          {dirtyStats(dirty).map(r => (
+          {!closed.has('changes') && dirtyStats(dirty).map(r => (
             <Box key={r.name} justifyContent="space-between" alignItems="center" gap={2}>
               <Box flexShrink={1} minWidth={0} gap={2}>
                 <Text size="footnote" bold wrap="truncate-end">{r.name}</Text>
