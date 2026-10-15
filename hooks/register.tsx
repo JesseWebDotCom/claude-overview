@@ -117,7 +117,7 @@ k=$(g '"cliSessionId": ?"[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k"
 done`
     let me = ''
-    try { me = String($.session.id()) } catch {}
+    try { me = String(await $.session.id()) } catch {}
     sess = sessionRows(await run($, ['sh', '-c', sessScript], 6000), nowMs, me)
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
@@ -313,15 +313,19 @@ export const register: Register = on => {
             </Button>
             <Text size="caption" color={sess.some(x => x.kind === 'blocked') ? '#e3a008' : undefined} dimColor={!sess.some(x => x.kind === 'blocked')}>{sessionSummary(sess)}</Text>
           </Box>
-          {sess.length > 0 && <Svg height={4} alt="Sessions by state" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none">${sess.map((x, i) => `<rect x="${i * (700 / sess.length) + 1}" width="${Math.max(1, 700 / sess.length - 2)}" height="4" rx="2" fill="${x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#2fa36b' : '#8a8a85'}" fill-opacity="${x.kind === 'idle' ? 0.4 : 1}"/>`).join('')}</svg>`} />}
+          {sess.length > 0 && <Svg height={4} alt="Sessions by state" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none">${sess.map((x, i) => `<rect x="${i * (700 / sess.length) + 1}" width="${Math.max(1, 700 / sess.length - 2)}" height="4" rx="2" fill="${x.kind === 'blocked' ? '#e3a008' : '#8a8a85'}" fill-opacity="${x.kind === 'idle' ? 0.4 : 1}"/>`).join('')}</svg>`} />}
+          <Text size="caption" dimColor wrap="truncate-end">{sess.some(x => x.kind === 'blocked') ? sess.filter(x => x.kind === 'blocked').length + ' waiting on you' : 'Nothing waiting on you'}</Text>
           {closed.has('sessions') && sess.filter(x => x.kind === 'blocked').slice(0, 2).map(x => (
-            <Text key={x.id} size="caption" color="#d9b84a" wrap="truncate-end">{x.title}: {x.needs !== '' ? x.needs : x.detail}</Text>
+            <Box key={x.id} flexDirection="column">
+              <Text size="caption" bold wrap="truncate-end">{x.title}</Text>
+              <Text size="caption" color="#d9b84a" wrap="truncate-end">{x.needs !== '' ? x.needs : x.detail}</Text>
+            </Box>
           ))}
           {!closed.has('sessions') && sess.slice(0, 10).map(x => (
             <Box key={x.id} flexDirection="column" marginLeft={x.depth * 2}>
               <Box justifyContent="space-between" gap={2}>
                 <Box flexShrink={1} minWidth={0} gap={1}>
-                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#2fa36b' : '#8a8a85'}>{x.current ? '★' : x.depth > 0 ? '↳' : x.kind === 'idle' ? '□' : '■'}</Text></Box>
+                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'blocked' ? '#e3a008' : '#8a8a85'}>{x.current ? '★' : x.depth > 0 ? '↳' : x.kind === 'idle' ? '□' : '■'}</Text></Box>
                   <Box flexShrink={1} minWidth={0}><Text size="footnote" bold wrap="truncate-end">{x.title}</Text></Box>
                 </Box>
                 <Box gap={1} flexShrink={0}>

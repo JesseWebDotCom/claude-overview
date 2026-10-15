@@ -132,7 +132,7 @@ test('modelName shortens Claude model ids', () => {
   expect(modelName('')).toBe('')
 })
 
-import { dotted } from '../hooks/agents'
+import { dotted, brief } from '../hooks/agents'
 test('dotted cycles none to three dots on working rows only', () => {
   expect([0, 1, 2, 3, 4].map(i => dotted('Thinking', true, i))).toEqual(['Thinking', 'Thinking.', 'Thinking..', 'Thinking...', 'Thinking'])
   expect(dotted('Thinking', false, 2)).toBe('Thinking')
@@ -187,7 +187,7 @@ test('sessionRows ranks asking first, then active, then recent; drops archived a
   expect(r.map(x => x.id)).toEqual(['l3', 'l2', 'l1'])
   expect(r[0].needs).toBe('Which database "main"?')
   expect(r[0].model).toBe('Sonnet 5.5')
-  expect(sessionSummary(r)).toBe('1 blocked · 1 active · 1 idle')
+  expect(sessionSummary(r)).toBe('1 blocked · 2 idle')
 })
 
 test('sessionRows nests sub-sessions under the session that started them', () => {
@@ -196,4 +196,9 @@ test('sessionRows nests sub-sessions under the session that started them', () =>
   const out = [line(1, 'Quiet', 'completed', 'a', ''), line(30, 'Parent', 'completed', 'p', ''), line(40, 'Child', 'blocked', 'c', 'p'), line(2, 'Orphan', 'completed', 'o', 'gone')].join('\n')
   const r = sessionRows(out, now)
   expect(r.map(x => x.id + ':' + x.depth)).toEqual(['p:0', 'c:1', 'a:0', 'o:0'])
+})
+
+test('brief keeps one short sentence', () => {
+  expect(brief('pick option 1 (active only when a subagent runs). Then continue with the rest')).toBe('pick option 1')
+  expect(brief('x'.repeat(100)).length).toBe(70)
 })
