@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
+import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
@@ -175,7 +175,8 @@ done`
     let health: unknown = null
     try { health = JSON.parse((await $.fs.read(HEALTH_PATH)).text ?? '') } catch { /* optional */ }
     const index = await run($, ['sh', '-c', 'tail -n 200 "$HOME/.codex/session_index.jsonl" 2>/dev/null'], 3000)
-    const all = overlayHealth([...subs, ...claude, ...expandTitle(tmux, index)], health, nowMs)
+    const procs = procRows(await run($, ['ps', '-axo', 'pid=,etime=,command='], 3000))
+    const all = overlayHealth([...subs, ...claude, ...expandTitle(tmux, index), ...procs], health, nowMs)
     // A busy tmux pane redraws constantly, so its last-activity age is always 0s. For working rows, show how long it has been working since this mod first saw it.
     const keep = new Set(all.map(r => r.key))
     for (const k of [...since.keys()]) if (!keep.has(k)) since.delete(k)

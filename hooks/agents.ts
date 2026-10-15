@@ -48,6 +48,28 @@ export function tmuxRow(p: Pane, captured: string, nowSec: number): Row {
   return { key: 'tmux:' + p.session, kind: 'tmux', name: p.session, state, model: foot ? foot[1] : undefined, detail: foot ? foot[1] + ' · ' + clean(foot[2]).trim() : ids ? ids[ids.length - 1] : last || p.command, ageSec: p.activity > 0 ? Math.max(0, nowSec - p.activity) : null }
 }
 
+// `ps` elapsed time `[[dd-]hh:]mm:ss` in seconds; null when it does not parse.
+export function etimeSec(s: string): number | null {
+  const m = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/.exec(s.trim())
+  return m ? Number(m[1] ?? 0) * 86400 + Number(m[2] ?? 0) * 3600 + Number(m[3]) * 60 + Number(m[4]) : null
+}
+
+// Lines of `<pid> <etime> <command line>` from `ps -axo pid=,etime=,command=`. A headless `codex exec` run (started from a
+// shell, not tmux) has no pane or transcript the other readings can see, so the process itself is the row. Only the codex
+// binary counts, not the shell that wraps it, and an interactive `codex` in tmux is already a tmux row.
+export function procRows(out: string): Row[] {
+  const rows: Row[] = []
+  for (const line of out.split('\n')) {
+    const m = /^\s*(\d+)\s+(\S+)\s+(.+)$/.exec(line)
+    if (!m) continue
+    const args = m[3].split(/\s+/)
+    if ((args[0].split('/').pop() ?? '') !== 'codex' || args[1] !== 'exec') continue
+    const file = /([^/\s]+)\.(?:md|txt)\b/.exec(m[3])
+    rows.push({ key: 'proc:' + m[1], kind: 'tmux', name: file ? 'codex exec ' + file[1] : 'codex exec', state: 'working', model: undefined, detail: 'Codex run (no tmux session)', ageSec: etimeSec(m[2]) })
+  }
+  return rows
+}
+
 // `claude-sonnet-5-5` or `claude-haiku-4-5-20251001` becomes `Sonnet 5.5` or `Haiku 4.5`; anything else is left out.
 export function modelName(id: string): string {
   const m = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(id.trim())

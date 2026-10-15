@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { contextView, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { procRows, etimeSec, contextView, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -229,4 +229,25 @@ test('dirtyBrief lists the dirtiest folders, three at most', async () => {
   const m = new Map([['/a/home', { n: 8 }], ['/a/wt-one', { n: 3 }], ['/a/c', { n: 2 }], ['/a/d', { n: 1 }]])
   expect(dirtyBrief(m)).toBe('± uncommitted · home 8 · wt-one 3 · c 2 · +1 more')
   expect(dirtyBrief(new Map([['/a/x', { n: 0 }]]))).toBe('')
+})
+
+test('procRows lists a headless codex exec, not its shell wrapper or an interactive codex', () => {
+  const out = [
+    '61037 05:12 codex exec --add-dir /x/y Read /x/y/BRIEF-maingate.md and do it exactly',
+    '61035 05:12 zsh -c codex exec --add-dir /x/y Read /x/y/BRIEF-maingate.md > log',
+    '70000 01:00 /opt/bin/codex',
+    '70001 1-02:03:04 /opt/bin/codex exec do the thing',
+  ].join('\n')
+  const rows = procRows(out)
+  expect(rows).toHaveLength(2)
+  expect(rows[0]).toMatchObject({ key: 'proc:61037', name: 'codex exec BRIEF-maingate', state: 'working', ageSec: 312 })
+  expect(rows[1]).toMatchObject({ name: 'codex exec', ageSec: 93784 })
+  expect(typeOf(rows[0])).toBe('codex')
+})
+
+test('etimeSec parses ps elapsed time', () => {
+  expect(etimeSec('00:09')).toBe(9)
+  expect(etimeSec('12:34')).toBe(754)
+  expect(etimeSec('3:04:05')).toBe(11045)
+  expect(etimeSec('nope')).toBeNull()
 })
