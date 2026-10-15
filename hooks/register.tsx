@@ -84,7 +84,7 @@ async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
 
 // Uncommitted-change counts per folder, refreshed at most every DIRTY_MS so a big repo is not scanned every poll.
 const DIRTY_MS = 10000
-const dirty = new Map<string, { n: number; at: number }>()
+const dirty = new Map<string, { n: number; add: number; del: number; at: number }>()
 // The card rows: every folder with changes, biggest first, at most six.
 // The line pinned under the prompt: every folder with changes, biggest first, at most three.
 export function dirtyBrief(map: Map<string, { n: number }>): string {
@@ -93,17 +93,19 @@ export function dirtyBrief(map: Map<string, { n: number }>): string {
   const shown = items.slice(0, 3).map(([d, v]) => (d.split('/').pop() || d) + ' ' + v.n)
   return '± uncommitted · ' + shown.join(' · ') + (items.length > 3 ? ' · +' + (items.length - 3) + ' more' : '')
 }
+export const dirtyStats = (map: Map<string, { n: number; add?: number; del?: number }>): { name: string; n: number; add: number; del: number }[] =>
+  [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => ({ name: d.split('/').pop() || d, n: v.n, add: v.add ?? 0, del: v.del ?? 0 }))
 export const dirtyList = (map: Map<string, { n: number }>): [string, number][] =>
   [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => [d.split('/').pop() || d, v.n])
 async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
   for (const d of [...dirty.keys()]) if (!cwds.includes(d)) dirty.delete(d)
   const want = [...new Set(cwds.filter(Boolean))].filter(d => nowMs - (dirty.get(d)?.at ?? 0) >= DIRTY_MS).slice(0, 24)
   if (want.length > 0) {
-    const script = 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); echo "$d|||$n"; done'
+    const script = 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); a=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" diff HEAD --numstat 2>/dev/null | awk "{a+=\\$1;r+=\\$2} END{print a+0\\\"|||\\\"r+0}"); echo "$d|||$n|||${a:-0|||0}"; done'
     const out = await run($, ['sh', '-c', script, 'sh', ...want], 8000)
     for (const line of out.split('\n')) {
-      const [d, n] = line.split('|||')
-      if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, at: nowMs })
+      const [d, n, add, del] = line.split('|||')
+      if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, add: Number(add) || 0, del: Number(del) || 0, at: nowMs })
     }
   }
   try { const t = dirtyBrief(new Map([...dirty.entries()].filter(([d]) => cwds.includes(d)))); $.ui.status(t === '' ? undefined : t) } catch { /* no status line on this surface */ }
@@ -139,7 +141,7 @@ done`
     const claude = claudeRows(await run($, ['sh', '-c', claudeScript], 6000), nowSec, '', await run($, ['sh', '-c', linkScript], 4000))
     try { claudeLim = claudeLimits((await $.session.usage()).rateLimits ?? []) } catch { /* not on a subscription */ }
     codexLim = codexLimits(await run($, ['sh', '-c', 'for f in $(ls -t $(find "$HOME/.codex/sessions" -name "*.jsonl" -mmin -1440 2>/dev/null) 2>/dev/null | head -4); do grep -h "rate_limits" "$f" | tail -1; done | head -1'], 5000))
-    try { ctx = contextView(await $.session.usage({ breakdown: 'summary', columns: 80 })) } catch { /* no session bound */ }
+    try { ctx = contextView(await $.session.usage({ breakdown: 'full', columns: 80 })) } catch { /* no session bound */ }
     // The command resolves when /compact is queued, so finish on the real signal: the context shrank.
     if (compactingSince > 0 && ctx && compactFrom > 0 && ctx.used < compactFrom * 0.9) { compactingSince = 0; ctxMsg = 'Compacted: ' + kTokens(compactFrom) + ' → ' + kTokens(ctx.used) }
     const sessScript = String.raw`find "$HOME/Library/Application Support/Claude/claude-code-sessions" -name 'local_*.json' -mmin -4320 2>/dev/null | while read -r f; do
@@ -335,7 +337,7 @@ export const register: Register = on => {
             <Box flexShrink={1} minWidth={0}>
               <Text size="caption" dimColor wrap="truncate-end">{compacting ? 'Compacting' + '.'.repeat(1 + (Math.floor(now / 1000) % 3)) + ' summarizing the conversation' : ctxMsg !== '' ? ctxMsg : contextNote(ctx)}</Text>
             </Box>
-            {compacting ? <Text size="caption" dimColor>Compact</Text> : <Button plain key="compact" onPress={() => { ctxMsg = ''; void compact($) }}><Text size="caption" bold>Compact</Text></Button>}
+            {compacting ? <Text size="caption" dimColor>Compact</Text> : <Button key="compact" onPress={() => { ctxMsg = ''; void compact($) }}><Text size="caption" bold>Compact</Text></Button>}
           </Box>
           {!closed.has('context') && <Box flexDirection="column">
             {ctx.cats.map(c => (
@@ -361,18 +363,18 @@ export const register: Register = on => {
             </Box>}
           </Box>}
         </Box>}
-        {dirtyList(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(227,160,8,0.35)" backgroundColor="rgba(227,160,8,0.10)" paddingX={2} paddingY={1} gap={1}>
-          <Box justifyContent="space-between" gap={2}>
-            <Text size="footnote" bold>Uncommitted changes</Text>
-          </Box>
-          <Box flexDirection="column">
-            {dirtyList(dirty).map(([name, n]) => (
-              <Box key={name} justifyContent="space-between" gap={2}>
-                <Box flexShrink={1} minWidth={0}><Text size="caption" color="#e3a008" bold wrap="truncate-end">{name}</Text></Box>
-                <Box flexShrink={0}><Text size="caption" color="#e3a008" bold tabular>{n} {n === 1 ? 'file' : 'files'}</Text></Box>
+        {dirtyStats(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+          <Text size="footnote" bold>Changes</Text>
+          {dirtyStats(dirty).map(r => (
+            <Box key={r.name} justifyContent="space-between" alignItems="center" gap={2}>
+              <Box flexShrink={1} minWidth={0} gap={2}>
+                <Text size="caption" bold wrap="truncate-end">{r.name}</Text>
+                <Text size="caption" color="#22c55e" tabular>+{r.add}</Text>
+                <Text size="caption" color="#ef4444" tabular>-{r.del}</Text>
               </Box>
-            ))}
-          </Box>
+              <Button key={'diff-' + r.name} onPress={() => { void $.command.run({ command: 'diff' }) }}><Text size="caption" bold>Show changes</Text></Button>
+            </Box>
+          ))}
         </Box>}
         <Box flexDirection="column" borderStyle="round" borderColor={waiting ? `rgba(227,160,8,${PULSE[Math.floor(now / TICK_MS) % PULSE.length]})` : 'rgba(128,128,128,0.22)'} backgroundColor={waiting ? `rgba(227,160,8,${(PULSE[Math.floor(now / TICK_MS) % PULSE.length] * 0.14).toFixed(3)})` : 'rgba(128,128,128,0.08)'} paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between" gap={2}>
