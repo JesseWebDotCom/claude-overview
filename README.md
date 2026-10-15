@@ -45,7 +45,7 @@ The Context card sits under your usage. It is one bar and one line, and opens in
 
 ## Uncommitted changes
 
-An amber card appears between Context and Sessions only when a folder you are working in has uncommitted files. It lists one row per folder with the file count, the biggest first, and it disappears again once everything is committed. It checks with `git status`, at most every 10 seconds, and never takes a git lock.
+An amber card appears between Context and Sessions only when a folder you are working in has uncommitted files. It lists one row per folder with the file count, the biggest first, and it disappears again once everything is committed. It checks with `git status`, at most every 10 seconds, and never takes a git lock. The same summary ("± uncommitted · home 8") is pinned in the status line under the prompt.
 
 ## Good to know
 

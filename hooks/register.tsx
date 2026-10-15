@@ -75,6 +75,13 @@ async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
 const DIRTY_MS = 10000
 const dirty = new Map<string, { n: number; at: number }>()
 // The card rows: every folder with changes, biggest first, at most six.
+// The line pinned under the prompt: every folder with changes, biggest first, at most three.
+export function dirtyBrief(map: Map<string, { n: number }>): string {
+  const items = [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n)
+  if (items.length === 0) return ''
+  const shown = items.slice(0, 3).map(([d, v]) => (d.split('/').pop() || d) + ' ' + v.n)
+  return '± uncommitted · ' + shown.join(' · ') + (items.length > 3 ? ' · +' + (items.length - 3) + ' more' : '')
+}
 export const dirtyList = (map: Map<string, { n: number }>): [string, number][] =>
   [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => [d.split('/').pop() || d, v.n])
 async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
@@ -88,6 +95,7 @@ async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void
       if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, at: nowMs })
     }
   }
+  try { const t = dirtyBrief(new Map([...dirty.entries()].filter(([d]) => cwds.includes(d)))); $.ui.status(t === '' ? undefined : t) } catch { /* no status line on this surface */ }
 }
 
 export async function poll($: any): Promise<void> {

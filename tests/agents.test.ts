@@ -223,3 +223,10 @@ test('dirtyList gives the per-folder rows, dirtiest first', async () => {
   const m = new Map([['/a/home', { n: 8 }], ['/a/x', { n: 0 }], ['/a/bot', { n: 3 }]])
   expect(dirtyList(m)).toEqual([['home', 8], ['bot', 3]])
 })
+
+test('dirtyBrief lists the dirtiest folders, three at most', async () => {
+  const { dirtyBrief } = await import('../hooks/register')
+  const m = new Map([['/a/home', { n: 8 }], ['/a/wt-one', { n: 3 }], ['/a/c', { n: 2 }], ['/a/d', { n: 1 }]])
+  expect(dirtyBrief(m)).toBe('± uncommitted · home 8 · wt-one 3 · c 2 · +1 more')
+  expect(dirtyBrief(new Map([['/a/x', { n: 0 }]]))).toBe('')
+})
