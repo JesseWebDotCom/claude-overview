@@ -84,7 +84,7 @@ echo "topcpu=$(sort -t'|' -k2 -nr /tmp/ov-top.$$ | head -5 | awk -F'|' '$2>0{pri
 echo "topmem=$(sort -t'|' -k3 -nr /tmp/ov-top.$$ | head -5 | awk -F'|' '{printf "%s%s:%s", s, $1, $3; s=";"}')"
 rm -f /tmp/ov-top.$$`
 // Cards the person hid, by id; read from the plugin's /config toggles every poll.
-const CARDS: [string, string][] = [['system', 'System'], ['subscriptions', 'Subscriptions'], ['context', 'Context'], ['changes', 'Changes'], ['sessions', 'Sessions'], ['agents', 'Agents']]
+const CARDS: [string, string][] = [['system', 'System'], ['changes', 'Changes'], ['subscriptions', 'Subscriptions'], ['context', 'Context'], ['sessions', 'Sessions'], ['agents', 'Agents']]
 const hidden = new Set<string>()
 // Saved in ~/.claude/overview.json as {"hidden":["agents"]}; edit it by hand or use `/overview hide agents`.
 const CFG = '$HOME/.claude/overview.json'
@@ -449,6 +449,33 @@ export const register: Register = on => {
           ))}
           {!closed.has('system') && sysv.note !== '' && <Text size="caption" color="#eab308" wrap="truncate-end">{sysv.note}</Text>}
         </Box>}
+        {!hidden.has('changes') && dirtyStats(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+          <Box justifyContent="space-between" alignItems="center">
+            <Button plain key="tchanges" onPress={() => toggle('changes')}>
+              <Text size="footnote" bold>Changes {closed.has('changes') ? '›' : '⌄'}</Text>
+            </Button>
+            <Box gap={2} alignItems="center" flexShrink={1} minWidth={0}>
+              <Box flexShrink={1} minWidth={0} gap={2}>
+                {changesTotals(dirty).folders > 1 && <Text size="footnote" bold wrap="truncate-end">{changesTotals(dirty).folders} folders</Text>}
+                <Text size="footnote" bold wrap="truncate-end">{changesTotals(dirty).files} files</Text>
+                <Text size="footnote" bold color="#4ade80" tabular>+{changesTotals(dirty).add}</Text>
+                <Text size="footnote" bold color="#f87171" tabular>-{changesTotals(dirty).del}</Text>
+              </Box>
+              <Button key="diff-open" onPress={() => { void showChanges($) }}><Text size="footnote" bold>Open</Text></Button>
+            </Box>
+          </Box>
+          {!closed.has('changes') && dirtyStats(dirty).map(r => (
+            <Box key={r.name} justifyContent="space-between" alignItems="center" gap={2}>
+              <Box flexShrink={1} minWidth={0} gap={2}>
+                <Text size="footnote" bold wrap="truncate-end">{r.name}</Text>
+                <Text size="footnote" bold color="#4ade80" tabular>+{r.add}</Text>
+                <Text size="footnote" bold color="#f87171" tabular>-{r.del}</Text>
+              </Box>
+              <Button key={'pr-' + r.name} onPress={() => { void createPr($, r.path) }}><Text size="footnote" bold>Create PR</Text></Button>
+            </Box>
+          ))}
+          {changesMsg !== '' && <Text size="caption" color="#e5736f" wrap="truncate-end">{changesMsg}</Text>}
+        </Box>}
         {!hidden.has('subscriptions') && (claudeLim.length > 0 || codexLim.length > 0) && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Text size="footnote" bold>Subscriptions</Text>
           {[['Claude', claudeLim], ['Codex', codexLim]].map(([who, list]: any) => {
@@ -510,33 +537,6 @@ export const register: Register = on => {
               ))}
             </Box>}
           </Box>}
-        </Box>}
-        {!hidden.has('changes') && dirtyStats(dirty).length > 0 && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
-          <Box justifyContent="space-between" alignItems="center">
-            <Button plain key="tchanges" onPress={() => toggle('changes')}>
-              <Text size="footnote" bold>Changes {closed.has('changes') ? '›' : '⌄'}</Text>
-            </Button>
-            <Box gap={2} alignItems="center" flexShrink={1} minWidth={0}>
-              <Box flexShrink={1} minWidth={0} gap={2}>
-                {changesTotals(dirty).folders > 1 && <Text size="footnote" bold wrap="truncate-end">{changesTotals(dirty).folders} folders</Text>}
-                <Text size="footnote" bold wrap="truncate-end">{changesTotals(dirty).files} files</Text>
-                <Text size="footnote" bold color="#4ade80" tabular>+{changesTotals(dirty).add}</Text>
-                <Text size="footnote" bold color="#f87171" tabular>-{changesTotals(dirty).del}</Text>
-              </Box>
-              <Button key="diff-open" onPress={() => { void showChanges($) }}><Text size="footnote" bold>Open</Text></Button>
-            </Box>
-          </Box>
-          {!closed.has('changes') && dirtyStats(dirty).map(r => (
-            <Box key={r.name} justifyContent="space-between" alignItems="center" gap={2}>
-              <Box flexShrink={1} minWidth={0} gap={2}>
-                <Text size="footnote" bold wrap="truncate-end">{r.name}</Text>
-                <Text size="footnote" bold color="#4ade80" tabular>+{r.add}</Text>
-                <Text size="footnote" bold color="#f87171" tabular>-{r.del}</Text>
-              </Box>
-              <Button key={'pr-' + r.name} onPress={() => { void createPr($, r.path) }}><Text size="footnote" bold>Create PR</Text></Button>
-            </Box>
-          ))}
-          {changesMsg !== '' && <Text size="caption" color="#e5736f" wrap="truncate-end">{changesMsg}</Text>}
         </Box>}
         {!hidden.has('sessions') && <Box flexDirection="column" borderStyle="round" borderColor={waiting ? `rgba(227,160,8,${PULSE[Math.floor(now / TICK_MS) % PULSE.length]})` : 'rgba(128,128,128,0.22)'} backgroundColor={waiting ? `rgba(227,160,8,${(PULSE[Math.floor(now / TICK_MS) % PULSE.length] * 0.14).toFixed(3)})` : 'rgba(128,128,128,0.08)'} paddingX={2} paddingY={1} gap={1}>
           <Box gap={2} alignItems="center">

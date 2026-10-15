@@ -51,7 +51,7 @@ The System card is the first card in the pane. Collapsed, it is one line: an ico
 
 ## Show or hide cards
 
-Cards run in a fixed order: System, Subscriptions, Context, Changes, Sessions, Agents. Context and Sessions are two lines each, with the bar beside the title. In Sessions the second line shows the waiting state on the left and the summary on the right.
+Cards run in a fixed order: System, Changes, Subscriptions, Context, Sessions, Agents. Context and Sessions are two lines each, with the bar beside the title. In Sessions the second line shows the waiting state on the left and the summary on the right.
 
 Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, system, context, changes, sessions, agents; `all` works too). The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
 
@@ -59,7 +59,7 @@ Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, s
 
 <img src="assets/changes-card.png" alt="Changes card, collapsed" width="450">
 
-The Changes card sits between Context and Sessions and appears only when a folder you are working in has changes. The header always shows the total: how many files, lines added in green and lines removed in red, plus an **Open** button that asks Claude to open its own Changes pane. Like Claude's own count, a folder is measured against `origin/main` for its branch plus anything uncommitted.
+The Changes card sits under System and appears only when a folder you are working in has changes. The header always shows the total: how many files, lines added in green and lines removed in red, plus an **Open** button that asks Claude to open its own Changes pane. Like Claude's own count, a folder is measured against `origin/main` for its branch plus anything uncommitted.
 
 The card is collapsed by default. Click the title to list one row per folder, biggest first, each with its own +/- and a **Create PR** button that opens a pull request for that folder.
 
