@@ -140,3 +140,11 @@ test('dotted cycles one to three dots on working rows only', () => {
   expect(dotted('Working…', true, 0)).toBe('Working.')
   expect(dotted('', true, 0)).toBe('')
 })
+
+import { staleActivity } from '../hooks/agents'
+test('a quiet row hides what it last did', () => {
+  expect(staleActivity('Writing a reply', 'idle')).toBe('')
+  expect(staleActivity('Tool call: Bash', 'done')).toBe('')
+  expect(staleActivity('Writing a reply', 'working')).toBe('Writing a reply')
+  expect(staleActivity('Execute API-12 brief', 'idle')).toBe('Execute API-12 brief')
+})

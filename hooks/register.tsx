@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { dotted, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel } from './agents'
+import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel } from './agents'
 import type { Row, Limit } from './agents'
 
 const PANE = 'overview'
@@ -19,7 +19,7 @@ const KIND: Record<Row['kind'], string> = { subagent: 'Subagent', claude: 'Claud
 // Subtle tints per model family; the label stays dim so the pill reads as a tag, not a button.
 const PILL: Record<string, string> = { sonnet: '#4a86e822', opus: '#d9693a22', fable: '#9a6ad922', haiku: '#3aa86a22', gpt: '#3aa86a22' }
 const pillColor = (m: string): string => PILL[m.toLowerCase().split(/[ -]/)[0]] ?? '#8a8a8522'
-const sub = (r: { model?: string; detail: string }): string => (r.model && r.detail.startsWith(r.model + ' · ') ? r.detail.slice(r.model.length + 3) : r.detail === r.model ? '' : r.detail)
+const sub = (r: { model?: string; detail: string; state: Row['state'] }): string => staleActivity(r.model && r.detail.startsWith(r.model + ' · ') ? r.detail.slice(r.model.length + 3) : r.detail === r.model ? '' : r.detail, r.state)
 
 const TYPE_COLOR: Record<string, string> = { claude: '#d97757', codex: '#4a86e8', local: '#c98b2b', tmux: '#8a8a85' }
 const TYPE_LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', local: 'Local', tmux: 'Other' }

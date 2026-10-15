@@ -66,6 +66,11 @@ export function activity(raw: string): string {
   return ('Tool call: ' + (arg ? tool + ' · ' + arg : tool)).slice(0, 110)
 }
 
+// What an agent last did is only worth showing while it is doing it: a quiet row hides it.
+export function staleActivity(text: string, state: State): string {
+  return (state === 'idle' || state === 'done') && /^(Thinking|Writing a reply|Tool call: )/.test(text) ? '' : text
+}
+
 // Animated ellipsis after the subtitle of a working row, replacing any trailing dots or ellipsis.
 export function dotted(text: string, working: boolean, step: number): string {
   if (!working || text === '') return text
