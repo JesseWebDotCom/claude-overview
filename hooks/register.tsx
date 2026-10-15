@@ -450,14 +450,14 @@ export const register: Register = on => {
             </Button>
             <Box gap={2} flexShrink={1} minWidth={0} flexWrap="wrap" justifyContent="flex-end">
               {sysv.meters.map(m => (
-                <Box key={m.label} gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Text size="caption" dimColor tabular>{Math.round(m.pct)}%</Text></Box>
+                <Box key={m.label} gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Box minWidth={4} justifyContent="flex-end"><Text size="caption" dimColor tabular>{Math.round(m.pct)}%</Text></Box></Box>
               ))}
             </Box>
           </Box>
           {!closed.has('system') && sysv.meters.map(m => (
             <Box key={m.label} flexDirection="column">
               <Box justifyContent="space-between" gap={2}>
-                {m.top && m.top.length > 0 ? <Button plain key={'tm' + m.label} onPress={() => toggle('top' + m.label)}><Box gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Text size="caption" bold>{m.label} {closed.has('top' + m.label) ? '›' : '⌄'}</Text></Box></Button> : <Box gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Text size="caption" bold>{m.label}</Text></Box>}
+                {m.top && m.top.length > 0 ? <Box gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Button plain key={'tm' + m.label} onPress={() => toggle('top' + m.label)}><Text size="caption" bold>{m.label} {closed.has('top' + m.label) ? '›' : '⌄'}</Text></Button></Box> : <Box gap={1} alignItems="center"><Svg width={14} height={14} alt={m.label} source={meterIcon(m.label, LEVEL_COLOR[m.level])} /><Text size="caption" bold>{m.label}</Text></Box>}
                 <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor tabular wrap="truncate-end">{m.detail}</Text></Box>
               </Box>
               <Svg height={4} alt={m.label + ' use'} source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none"><rect width="700" height="4" rx="2" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(4, Math.min(100, m.pct) * 7)}" height="4" rx="2" fill="${LEVEL_COLOR[m.level]}"/></svg>`} />
