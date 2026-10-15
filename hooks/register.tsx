@@ -167,7 +167,7 @@ const liveNow = (nowMs: number): Set<string> => {
   for (const [id, at] of liveSeen) if (nowMs - at > LIVE_GRACE_MS) liveSeen.delete(id)
   return new Set(liveSeen.keys())
 }
-const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes', 'system', 'cards'])
+const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes', 'system'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
   try {
@@ -597,18 +597,6 @@ export const register: Register = on => {
           {head('inactive', 'Inactive', inactive.length)}
           {!closed.has('inactive') && inactive.map(row)}
         </Box>}
-        <Box flexDirection="column" gap={1}>
-          <Button plain key="tcards" onPress={() => toggle('cards')}>
-            <Text size="caption" dimColor>Cards {closed.has('cards') ? '›' : '⌄'}{hidden.size > 0 ? '  ' + hidden.size + ' hidden' : ''}</Text>
-          </Button>
-          {!closed.has('cards') && <Box gap={2} flexWrap="wrap">
-            {CARDS.map(([id, label]) => (
-              <Button key={'show-' + id} onPress={() => { void setCard($, id, hidden.has(id)) }}>
-                <Text size="caption" bold={!hidden.has(id)} dimColor={hidden.has(id)}>{hidden.has(id) ? '□' : '■'} {label}</Text>
-              </Button>
-            ))}
-          </Box>}
-        </Box>
       </Box>
     )
   })

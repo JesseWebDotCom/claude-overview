@@ -49,7 +49,7 @@ The System card sits above Context. Collapsed, it is one line: an icon (chip, me
 
 ## Show or hide cards
 
-Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, system, context, changes, sessions, agents; `all` works too). The **Cards** row at the bottom of the pane does the same with a click. The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
+Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, system, context, changes, sessions, agents; `all` works too). The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
 
 ## Changes
 
