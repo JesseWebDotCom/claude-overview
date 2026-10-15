@@ -128,7 +128,7 @@ export function activity(raw: string): string {
 
 // What an agent last did is only worth showing while it is doing it: a quiet row hides it.
 export function staleActivity(text: string, state: State): string {
-  return (state === 'idle' || state === 'done') && /^(Thinking|Writing a reply|Tool call: )/.test(text) ? '' : text
+  return (state === 'idle' || state === 'done') && /^(Thinking|Writing a reply|Tool call: )/.test(text) ? (state === 'idle' ? 'Idle, waiting for a message' : 'Finished') : text
 }
 
 // Animated ellipsis after the subtitle of a working row, replacing any trailing dots or ellipsis.

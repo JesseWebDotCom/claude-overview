@@ -163,8 +163,8 @@ test('dotted cycles none to three dots on working rows only', () => {
 
 import { staleActivity } from '../hooks/agents'
 test('a quiet row hides what it last did', () => {
-  expect(staleActivity('Writing a reply', 'idle')).toBe('')
-  expect(staleActivity('Tool call: Bash', 'done')).toBe('')
+  expect(staleActivity('Writing a reply', 'idle')).toBe('Idle, waiting for a message')
+  expect(staleActivity('Tool call: Bash', 'done')).toBe('Finished')
   expect(staleActivity('Writing a reply', 'working')).toBe('Writing a reply')
   expect(staleActivity('Execute API-12 brief', 'idle')).toBe('Execute API-12 brief')
 })
