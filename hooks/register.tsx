@@ -232,19 +232,19 @@ export const register: Register = on => {
             </Button>
             <Text size="caption" dimColor tabular>{ctx.percent}%{closed.has('context') ? '' : ' used  ' + kTokens(ctx.used) + ' / ' + kTokens(ctx.max)}</Text>
           </Box>
-          {closed.has('context') && <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} />}
+          <Box alignItems="center" gap={2}>
+            <Box flexGrow={1} flexShrink={1} minWidth={0}>
+              {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map((c, i) => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${ctxColor(i, false)}"/>`; x += w; return r }).join('') })()}</svg>`} />}
+            </Box>
+            <Button key="compact" onPress={async () => { try { await $.session.compact() } catch { $.ui.toast('Cannot compact while a turn is running.') } }}>Compact</Button>
+          </Box>
           {!closed.has('context') && <Box flexDirection="column" gap={1}>
-            <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map((c, i) => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${ctxColor(i, false)}"/>`; x += w; return r }).join('') })()}</svg>`} />
             {ctx.cats.map((c, i) => (
               <Box key={c.name} justifyContent="space-between" gap={2}>
                 <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor={c.dim || c.free} wrap="truncate-end"><Text color={ctxColor(i, c.dim || c.free)}>■</Text> {c.name}</Text></Box>
                 <Box flexShrink={0}><Text size="caption" dimColor tabular>{kTokens(c.tokens)}{c.dim ? '' : '  ' + c.pct.toFixed(1) + '%'}</Text></Box>
               </Box>
             ))}
-            <Box justifyContent="space-between" alignItems="center" gap={2}>
-              <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{ctx.percent >= 80 ? 'Auto-compacts soon' : 'Frees up room'}</Text></Box>
-              <Button key="compact" onPress={async () => { try { await $.session.compact() } catch { $.ui.toast('Cannot compact while a turn is running.') } }}>Compact session</Button>
-            </Box>
           </Box>}
         </Box>}
         <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
