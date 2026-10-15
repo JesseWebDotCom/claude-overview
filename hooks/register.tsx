@@ -78,6 +78,7 @@ const dirty = new Map<string, { n: number; at: number }>()
 export const dirtyList = (map: Map<string, { n: number }>): [string, number][] =>
   [...map.entries()].filter(([, v]) => v.n > 0).sort((p, q) => q[1].n - p[1].n).slice(0, 6).map(([d, v]) => [d.split('/').pop() || d, v.n])
 async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
+  for (const d of [...dirty.keys()]) if (!cwds.includes(d)) dirty.delete(d)
   const want = [...new Set(cwds.filter(Boolean))].filter(d => nowMs - (dirty.get(d)?.at ?? 0) >= DIRTY_MS).slice(0, 24)
   if (want.length > 0) {
     const script = 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); echo "$d|||$n"; done'
