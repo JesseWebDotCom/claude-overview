@@ -173,7 +173,7 @@ export async function poll($: any): Promise<void> {
     const tmux = await Promise.all(panes.map(async p => tmuxRow(p, await run($, ['tmux', 'capture-pane', '-p', '-t', p.id, '-S', '-14']), nowSec)))
     const claudeScript = String.raw`for f in $(find "$HOME/.claude/projects" -maxdepth 2 -name "*.jsonl" -mmin -360 2>/dev/null); do
 t=$(grep -o '"customTitle":"[^"]*"' "$f" | tail -1 | cut -d'"' -f4)
-L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1)
+L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | grep -vE '"isMeta":true|"content":"<(command-name|local-command)' | tail -1)
 if echo "$L" | grep -q '"type":"user"'; then act=think
 elif echo "$L" | grep -q '"type":"tool_use"'; then
 n=$(echo "$L" | grep -o '"type":"tool_use","id":"[^"]*","name":"[A-Za-z_]*"' | tail -1 | sed 's/.*"name":"//;s/"$//')
@@ -181,7 +181,7 @@ a=$(echo "$L" | grep -o '"\(description\|file_path\)":"[^"]\{1,90\}' | tail -1 |
 act="tool $n $a"
 elif echo "$L" | grep -q '"type":"thinking"'; then act=think
 else act=write; fi
-e=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1 | grep -c '"stop_reason":"end_turn"')
+e=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | grep -vE '"isMeta":true|"content":"<(command-name|local-command)' | tail -1 | grep -c '"stop_reason":"end_turn"')
 m=$(tail -n 80 "$f" | grep -o '"model":"claude[^"]*"' | tail -1 | cut -d'"' -f4)
 w=$(grep -m1 -o '"cwd":"[^"]*"' "$f" | cut -d'"' -f4)
 echo "$(stat -f %m "$f") $f|||$t|||$act|||$e|||$m|||$w"
@@ -212,7 +212,7 @@ q=0
 if [ -n "$k" ]; then
 tf=$(ls "$HOME"/.claude/projects/*/"$k".jsonl 2>/dev/null | head -1)
 if [ -n "$tf" ]; then
-L=$(tail -n 40 "$tf" | grep -E '"type":"(assistant|user)"' | tail -1)
+L=$(tail -n 40 "$tf" | grep -E '"type":"(assistant|user)"' | grep -vE '"isMeta":true|"content":"<(command-name|local-command)' | tail -1)
 if echo "$L" | grep -qE '"type":"tool_use","id":"[^"]*","name":"(AskUserQuestion|ExitPlanMode)"' && ! echo "$L" | grep -q '"type":"tool_result"'; then q=1; fi
 fi
 fi
@@ -227,7 +227,7 @@ done`
     await refreshDirty($, [...claude.map(r => r.cwd ?? ''), ...sess.map(x => x.cwd)], nowMs)
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
-L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1)
+L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | grep -vE '"isMeta":true|"content":"<(command-name|local-command)' | tail -1)
 if echo "$L" | grep -q '"type":"user"'; then act=think
 elif echo "$L" | grep -q '"type":"tool_use"'; then
 n=$(echo "$L" | grep -o '"type":"tool_use","id":"[^"]*","name":"[A-Za-z_]*"' | tail -1 | sed 's/.*"name":"//;s/"$//')
