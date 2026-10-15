@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel, contextView, kTokens, contextNote } from './agents'
+import { dotted, staleActivity, claudeRows, expandTitle, pace, overlayHealth, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
@@ -39,6 +39,7 @@ let busy = false
 let claudeLim: Limit[] = []
 let codexLim: Limit[] = []
 let ctx: CtxView | null = null
+let sess: SessRow[] = []
 let ctxMsg = ''
 let compactingSince = 0 // 0 = idle; -1 = stamp at next draw
 let compactFrom = 0
@@ -101,6 +102,19 @@ done`
     try { ctx = contextView(await $.session.usage({ breakdown: 'summary', columns: 80 })) } catch { /* no session bound */ }
     // The command resolves when /compact is queued, so finish on the real signal: the context shrank.
     if (compactingSince > 0 && ctx && compactFrom > 0 && ctx.used < compactFrom * 0.9) { compactingSince = 0; ctxMsg = 'Compacted: ' + kTokens(compactFrom) + ' → ' + kTokens(ctx.used) }
+    const sessScript = String.raw`find "$HOME/Library/Application Support/Claude/claude-code-sessions" -name 'local_*.json' -mmin -4320 2>/dev/null | while read -r f; do
+g() { grep -oE "$1" "$f" | head -1; }
+a=$(g '"lastActivityAt": ?[0-9]+' | grep -oE '[0-9]+$')
+r=$(g '"isArchived": ?(true|false)' | grep -oE '(true|false)$')
+t=$(g '"title": ?"([^"\\]|\\.)*"' | sed -E 's/^"title": ?"//;s/"$//')
+c=$(g '"status_category": ?"[a-z_]*"' | sed -E 's/.*: ?"//;s/"$//')
+d=$(g '"status_detail": ?"([^"\\]|\\.)*"' | sed -E 's/^"status_detail": ?"//;s/"$//')
+n=$(g '"needs_action": ?"([^"\\]|\\.)*"' | sed -E 's/^"needs_action": ?"//;s/"$//')
+m=$(g '"model": ?"claude[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
+i=$(g '"sessionId": ?"local_[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
+echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i"
+done`
+    sess = sessionRows(await run($, ['sh', '-c', sessScript], 6000), nowMs)
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
 L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1)
@@ -288,6 +302,35 @@ export const register: Register = on => {
             </Box>}
           </Box>}
         </Box>}
+        <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
+          <Box justifyContent="space-between" gap={2}>
+            <Button plain key="tsessions" onPress={() => toggle('sessions')}>
+              <Text size="footnote" bold>Sessions {closed.has('sessions') ? '›' : '⌄'}</Text>
+            </Button>
+            <Text size="caption" color={sess.some(x => x.kind === 'asking') ? '#e3a008' : undefined} dimColor={!sess.some(x => x.kind === 'asking')}>{sessionSummary(sess)}</Text>
+          </Box>
+          {!closed.has('sessions') && sess.slice(0, 8).map(x => (
+            <Box key={x.id} flexDirection="column">
+              <Box justifyContent="space-between" gap={2}>
+                <Box flexShrink={1} minWidth={0} gap={1}>
+                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'asking' ? '#e3a008' : x.kind === 'active' ? '#2fa36b' : '#8a8a85'}>{x.kind === 'recent' ? '□' : '■'}</Text></Box>
+                  <Box flexShrink={1} minWidth={0}><Text size="footnote" bold wrap="truncate-end">{x.title}</Text></Box>
+                </Box>
+                <Box gap={1} flexShrink={0}>
+                  {x.kind === 'asking' && <Text size="caption" color="#e3a008" bold>asking</Text>}
+                  <Text size="caption" dimColor tabular>{ageLabel(x.ageSec + drift)}</Text>
+                </Box>
+              </Box>
+              {(x.model !== '' || x.detail !== '' || x.needs !== '') && (
+                <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
+                  {x.model !== '' && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(x.model)}><Text size="caption" dimColor wrap="truncate-end">{x.model}</Text></Box>}
+                  <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'asking' ? '#d9b84a' : undefined} dimColor={x.kind !== 'asking'} wrap="truncate-end">{x.kind === 'asking' && x.needs !== '' ? x.needs : x.detail}</Text></Box>
+                </Box>
+              )}
+            </Box>
+          ))}
+          {!closed.has('sessions') && sess.length === 0 && <Text size="caption" dimColor>No recent sessions.</Text>}
+        </Box>
         <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
           <Box justifyContent="space-between">
             <Text size="footnote" bold>Agents</Text>

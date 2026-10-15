@@ -279,3 +279,33 @@ export function contextNote(c: CtxView): string {
   if (left <= c.max * 0.15) return 'Auto-compact soon · ' + kTokens(left) + ' left. Compact now to choose what to keep'
   return kTokens(left) + ' until auto-compact'
 }
+
+// Desktop sessions (one json per session): what is asking you, what is running, what ran lately.
+export type SessKind = 'asking' | 'active' | 'recent'
+export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number }
+
+const unesc = (s: string): string => s.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\./g, '').trim()
+const ACTIVE_SEC = 300
+const RECENT_SEC = 86400
+const ASKING_SEC = 3 * 86400
+
+export function sessionRows(out: string, nowMs: number): SessRow[] {
+  const rows: SessRow[] = []
+  for (const line of out.split('\n')) {
+    const [at, archived, title, cat, detail, needs, model, id] = line.split('|||')
+    const ms = Number(at)
+    if (!id || !Number.isFinite(ms) || archived === 'true') continue
+    const ageSec = Math.max(0, (nowMs - ms) / 1000)
+    const asking = cat === 'blocked'
+    if (ageSec > (asking ? ASKING_SEC : RECENT_SEC)) continue
+    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'asking' : ageSec < ACTIVE_SEC ? 'active' : 'recent', detail: unesc(detail), needs: unesc(needs), model: modelName(model ?? ''), ageSec })
+  }
+  const rank: Record<SessKind, number> = { asking: 0, active: 1, recent: 2 }
+  return rows.sort((p, q) => rank[p.kind] - rank[q.kind] || p.ageSec - q.ageSec)
+}
+
+export function sessionSummary(rows: SessRow[]): string {
+  const n = (k: SessKind) => rows.filter(r => r.kind === k).length
+  const parts = [[n('asking'), 'asking'], [n('active'), 'active'], [n('recent'), 'recent']].filter(([c]) => (c as number) > 0).map(([c, w]) => c + ' ' + w)
+  return parts.join(' · ') || 'none'
+}

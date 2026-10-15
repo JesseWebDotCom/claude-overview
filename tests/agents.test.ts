@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { contextView, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { contextView, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayHealth, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -177,4 +177,15 @@ test('contextAdvice nudges only oversized categories; every counted category has
   expect(fileAdvice(9400)?.level).toBe('high')
   const v = contextView({ context: { percent: 50, breakdown: { totalTokens: 100, maxTokens: 200, categories: [{ name: 'A', tokens: 10 }, { name: 'B', tokens: 10 }, { name: 'C', tokens: 10 }, { name: 'D', tokens: 10 }, { name: 'E', tokens: 10 }] } } })
   expect(new Set(v?.cats.map(c => c.color)).size).toBe(5)
+})
+
+test('sessionRows ranks asking first, then active, then recent; drops archived and old', () => {
+  const now = 1_000_000_000_000
+  const line = (ageMin: number, archived: string, title: string, cat: string, detail: string, needs: string, id: string) => [now - ageMin * 60000, archived, title, cat, detail, needs, 'claude-sonnet-5-5', id].join('|||')
+  const out = [line(200, 'false', 'Old chat', 'completed', 'done', '', 'l1'), line(1, 'false', 'Live', 'review_ready', 'building', '', 'l2'), line(900, 'false', 'Asks', 'blocked', 'q', 'Which database \\"main\\"?', 'l3'), line(5, 'true', 'Gone', 'completed', '', '', 'l4'), line(3000, 'false', 'Stale', 'completed', '', '', 'l5')].join('\n')
+  const r = sessionRows(out, now)
+  expect(r.map(x => x.id)).toEqual(['l3', 'l2', 'l1'])
+  expect(r[0].needs).toBe('Which database "main"?')
+  expect(r[0].model).toBe('Sonnet 5.5')
+  expect(sessionSummary(r)).toBe('1 asking · 1 active · 1 recent')
 })

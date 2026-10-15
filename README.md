@@ -25,6 +25,10 @@ Answer `y` to add the marketplace, then pick a scope.
 
 The pane opens beside the chat. Green-to-red bars are your usage, with a line saying whether you are on track. Each agent shows what it is doing and which model it runs on. Idle agents tuck under Inactive.
 
+## Sessions
+
+The Sessions card (collapsed by default, above Agents) lists your desktop sessions from the last day: ones that are asking you something, ones active in the last five minutes, and recent ones. A session waiting on an answer shows the question in amber and the collapsed header says how many are asking, so you do not have to open each chat to find the one that is stuck.
+
 ## Context: compact in time, see what is eating it
 
 The Context card sits under your usage. It is one bar and one line, and opens into the full picture.
