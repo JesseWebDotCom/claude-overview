@@ -167,7 +167,7 @@ const liveNow = (nowMs: number): Set<string> => {
   for (const [id, at] of liveSeen) if (nowMs - at > LIVE_GRACE_MS) liveSeen.delete(id)
   return new Set(liveSeen.keys())
 }
-const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes', 'system', 'cards', 'topCPU', 'topMemory'])
+const closed = new Set<string>(['inactive', 'context', 'sessions', 'changes', 'system', 'cards'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
   try {
