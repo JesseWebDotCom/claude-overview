@@ -27,7 +27,7 @@ The pane opens beside the chat. Green-to-red bars are your usage, with a line sa
 
 ## Sessions
 
-The Sessions card (collapsed by default, above Agents) lists your desktop sessions from the last day. Each is either blocked on a question for you or idle. A line under the bar always says how many are waiting on you, and a blocked session shows its question in amber, even when the card is collapsed, so you do not have to open each chat to find the one that is stuck. While anything is waiting on you, the whole card gets a pulsing amber border and a faint amber background, so it catches your eye from across the pane.
+The Sessions card (collapsed by default, above Agents) lists your desktop sessions from the last day. Each is blocked on a question for you, active (it or one of its agents is working right now), or idle. A line under the bar always says how many are waiting on you, and a blocked session shows its question in amber, even when the card is collapsed, so you do not have to open each chat to find the one that is stuck. While anything is waiting on you, the whole card gets a pulsing amber border and a faint amber background, so it catches your eye from across the pane.
 
 Sessions started by another session nest under it with a ↳, like subagents do, and a ★ marks the session you are in.
 

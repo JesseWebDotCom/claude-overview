@@ -353,7 +353,7 @@ export function contextNote(c: CtxView): string {
 }
 
 // Desktop sessions (one json per session): what is asking you, what is running, what ran lately.
-export type SessKind = 'blocked' | 'idle'
+export type SessKind = 'blocked' | 'active' | 'idle'
 export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number; spawn: string; depth: number; cli: string; current: boolean; cwd: string }
 
 const unesc = (s: string): string => s.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\./g, '').trim()
@@ -365,7 +365,8 @@ export const brief = (s: string): string => {
 const RECENT_SEC = 86400
 const ASKING_SEC = 3 * 86400
 
-export function sessionRows(out: string, nowMs: number, currentCli = ''): SessRow[] {
+// `live` holds the CLI session ids that have a working agent (the session itself, a subagent, or a tmux run it owns).
+export function sessionRows(out: string, nowMs: number, currentCli = '', live: Set<string> = new Set()): SessRow[] {
   const rows: SessRow[] = []
   for (const line of out.split('\n')) {
     const [at, archived, title, cat, detail, needs, model, id, spawn, cli, pending, cwd] = line.split('|||')
@@ -375,9 +376,9 @@ export function sessionRows(out: string, nowMs: number, currentCli = ''): SessRo
     // The app writes status_category only some of the time; an unanswered question at the end of the transcript also means it is waiting on you.
     const asking = cat === 'blocked' || (pending ?? '').trim() === '1'
     if (ageSec > (asking ? ASKING_SEC : RECENT_SEC)) continue
-    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : 'idle', detail: brief(unesc(detail)), needs: brief(unesc(needs)), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli, cwd: (cwd ?? '').trim() })
+    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : live.has((cli ?? '').trim()) ? 'active' : 'idle', detail: brief(unesc(detail)), needs: brief(unesc(needs)), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli, cwd: (cwd ?? '').trim() })
   }
-  const rank: Record<SessKind, number> = { blocked: 0, idle: 1 }
+  const rank: Record<SessKind, number> = { blocked: 0, active: 1, idle: 2 }
   const byId = new Map(rows.map(r => [r.id, r]))
   const rootOf = (r: SessRow): SessRow => { let cur = r; for (let n = 0; n < 8; n++) { const p = byId.get(cur.spawn); if (!p || p === cur) break; cur = p } return cur }
   // A session that started others stays with them: a tree ranks by its most urgent member, children follow their parent.
@@ -396,6 +397,11 @@ export function sessionRows(out: string, nowMs: number, currentCli = ''): SessRo
 
 export function sessionSummary(rows: SessRow[]): string {
   const n = (k: SessKind) => rows.filter(r => r.kind === k).length
-  const parts = [[n('blocked'), 'blocked'], [n('idle'), 'idle']].filter(([c]) => (c as number) > 0).map(([c, w]) => c + ' ' + w)
+  const parts = [[n('blocked'), 'blocked'], [n('active'), 'active'], [n('idle'), 'idle']].filter(([c]) => (c as number) > 0).map(([c, w]) => c + ' ' + w)
   return parts.join(' · ') || 'none'
+}
+
+// CLI session ids with a working agent: the session's own turn, a subagent, or a tmux run it owns.
+export function liveParents(rows: Row[]): Set<string> {
+  return new Set(rows.filter(r => r.parent && (r.state === 'working' || r.state === 'problem')).map(r => r.parent as string))
 }

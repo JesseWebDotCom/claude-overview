@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
+import { codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -277,4 +277,17 @@ test('etimeSec parses ps elapsed time', () => {
   expect(etimeSec('12:34')).toBe(754)
   expect(etimeSec('3:04:05')).toBe(11045)
   expect(etimeSec('nope')).toBeNull()
+})
+
+test('a session with a working agent is active, ranked above idle and below blocked', () => {
+  const now = 1_000_000_000
+  const line = (title: string, id: string, cli: string, pending: string) => `${now - 60_000}|||false|||${title}||||||||||||||claude-sonnet-5-5|||${id}||||||${cli}|||${pending}`
+  const out = [line('Quiet', 'l1', 'cli-1', '0'), line('Busy', 'l2', 'cli-2', '0'), line('Asks', 'l3', 'cli-3', '1')].join('\n')
+  const live = liveParents([
+    { key: 'sub:a', kind: 'subagent', name: 'x', state: 'working', detail: '', ageSec: 1, parent: 'cli-2' },
+    { key: 'sub:b', kind: 'subagent', name: 'y', state: 'done', detail: '', ageSec: 1, parent: 'cli-1' },
+  ])
+  const r = sessionRows(out, now, '', live)
+  expect(r.map(x => x.id + ':' + x.kind)).toEqual(['l3:blocked', 'l2:active', 'l1:idle'])
+  expect(sessionSummary(r)).toBe('1 blocked · 1 active · 1 idle')
 })

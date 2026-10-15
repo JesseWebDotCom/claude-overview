@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary } from './agents'
+import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, liveParents } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit } from './agents'
 
@@ -41,6 +41,8 @@ let claudeLim: Limit[] = []
 let codexLim: Limit[] = []
 let ctx: CtxView | null = null
 let sess: SessRow[] = []
+let sessOut = ''
+let sessMe = ''
 let ctxMsg = ''
 let compactingSince = 0 // 0 = idle; -1 = stamp at next draw
 let compactFrom = 0
@@ -61,7 +63,7 @@ async function compact($: any): Promise<void> {
   void $.ui.invalidate('ui.render')
 }
 
-const closed = new Set<string>(['inactive', 'context'])
+const closed = new Set<string>(['inactive', 'context', 'sessions'])
 
 async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
   try {
@@ -157,7 +159,9 @@ echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k|||$q|||$w"
 done`
     let me = ''
     try { me = String(await $.session.id()) } catch {}
-    sess = sessionRows(await run($, ['sh', '-c', sessScript], 6000), nowMs, me)
+    sessOut = await run($, ['sh', '-c', sessScript], 6000)
+    sessMe = me
+    sess = sessionRows(sessOut, nowMs, me)
     await refreshDirty($, [...claude.map(r => r.cwd ?? ''), ...sess.map(x => x.cwd)], nowMs)
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
@@ -189,6 +193,7 @@ done`
       const at = since.get(r.key)!.at
       return r.state === 'working' && r.kind === 'tmux' ? { ...r, ageSec: Math.max(0, (nowMs - at) / 1000) } : r
     }))
+    sess = sessionRows(sessOut, nowMs, sessMe, liveParents(rows))
     polledAt = nowMs
     $.ui.invalidate('ui.render')
   } finally {
@@ -367,7 +372,7 @@ export const register: Register = on => {
             </Button>
             <Text size="caption" color={sess.some(x => x.kind === 'blocked') ? '#e3a008' : undefined} dimColor={!sess.some(x => x.kind === 'blocked')}>{sessionSummary(sess)}</Text>
           </Box>
-          {sess.length > 0 && <Svg height={4} alt="Sessions by state" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none">${sess.map((x, i) => `<rect x="${i * (700 / sess.length) + 1}" width="${Math.max(1, 700 / sess.length - 2)}" height="4" rx="2" fill="${x.kind === 'blocked' ? '#e3a008' : '#8a8a85'}" fill-opacity="${x.kind === 'idle' ? 0.4 : 1}"/>`).join('')}</svg>`} />}
+          {sess.length > 0 && <Svg height={4} alt="Sessions by state" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none">${sess.map((x, i) => `<rect x="${i * (700 / sess.length) + 1}" width="${Math.max(1, 700 / sess.length - 2)}" height="4" rx="2" fill="${x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#22c55e' : '#8a8a85'}" fill-opacity="${x.kind === 'idle' ? 0.4 : 1}"/>`).join('')}</svg>`} />}
           <Text size="caption" dimColor wrap="truncate-end">{sess.some(x => x.kind === 'blocked') ? sess.filter(x => x.kind === 'blocked').length + ' waiting on you' : 'Nothing waiting on you'}</Text>
           {closed.has('sessions') && sess.filter(x => x.kind === 'blocked').slice(0, 2).map(x => (
             <Box key={x.id} flexDirection="column">
@@ -379,11 +384,12 @@ export const register: Register = on => {
             <Box key={x.id} flexDirection="column" marginLeft={x.depth * 2}>
               <Box justifyContent="space-between" gap={2}>
                 <Box flexShrink={1} minWidth={0} gap={1}>
-                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'blocked' ? '#e3a008' : '#8a8a85'}>{x.current ? '★' : x.depth > 0 ? '↳' : x.kind === 'idle' ? '□' : '■'}</Text></Box>
+                  <Box flexShrink={0}><Text size="footnote" color={x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#22c55e' : '#8a8a85'}>{x.current ? '★' : x.depth > 0 ? '↳' : x.kind === 'idle' ? '□' : '■'}</Text></Box>
                   <Box flexShrink={1} minWidth={0}><Text size="footnote" bold wrap="truncate-end">{x.title}</Text></Box>
                 </Box>
                 <Box gap={1} flexShrink={0}>
                   {x.kind === 'blocked' && <Text size="caption" color="#e3a008" bold>blocked</Text>}
+                  {x.kind === 'active' && <Text size="caption" color="#22c55e" bold>active</Text>}
                   <Text size="caption" dimColor tabular>{ageLabel(x.ageSec + drift)}</Text>
                 </Box>
               </Box>
