@@ -200,14 +200,12 @@ export function pace(list: Limit[], nowSec: number, compact = false): string {
     const left = Math.max(0, l.resetsAtSec - nowSec)
     const elapsed = win - left
     if (l.pct >= 100) { const r = { text: (compact ? 'Limit reached, resets in ' : 'Limit reached. It resets in ') + span(left), score: 1e9 }; if (!worst || r.score > worst.score) worst = r; continue }
-    if (elapsed < win * 0.05) continue
+    if (elapsed < win * 0.1) continue
     const projected = (l.pct * win) / elapsed
     const when = compact ? (l.name === 'Weekly' ? 'the week' : 'the 5 hours') : l.name === 'Weekly' ? "this week's limit" : 'this 5-hour limit'
     const text = projected > 100
       ? (compact ? 'Slow down: out in ~' : 'Slow down: ' + when + ' runs out in about ') + span(((100 - l.pct) / l.pct) * elapsed)
-      : projected > 85
-        ? (compact ? 'Heads up: ~' : 'Heads up: on pace to use about ') + Math.round(projected) + '% of ' + when
-        : (compact ? 'On track: ~' : 'On track to use about ') + Math.round(projected) + '% of ' + when
+      : (compact ? 'On track: ~' : 'On track to use about ') + Math.round(projected) + '% of ' + when
     if (!worst || projected > worst.score) worst = { text, score: projected }
   }
   return worst?.text ?? ''
@@ -244,4 +242,14 @@ export function contextView(usage: any): CtxView | null {
   }))
   const used = b?.totalTokens ?? usage?.context?.tokens ?? 0
   return { percent: Math.round(max > 0 && used > 0 ? (used / max) * 100 : percent), used, max, cats }
+}
+
+// The line under the context bar, worded like Claude's own: how much room is left before auto-compact, and a nudge to compact when it is close.
+export function contextNote(c: CtxView): string {
+  const buffer = c.cats.find(x => /autocompact/i.test(x.name))?.tokens ?? 0
+  const left = Math.max(0, c.max - c.used - buffer)
+  if (c.max <= 0) return ''
+  if (left <= c.max * 0.05) return 'Auto-compact is about to run'
+  if (left <= c.max * 0.15) return 'Auto-compact soon · ' + kTokens(left) + ' left. Compact now to choose what to keep'
+  return kTokens(left) + ' until auto-compact'
 }
