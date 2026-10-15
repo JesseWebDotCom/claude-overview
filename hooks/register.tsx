@@ -349,7 +349,6 @@ export const register: Register = on => {
         {dirtyBrief(dirty) !== '' && <Box flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1}>
           <Box justifyContent="space-between" gap={2}>
             <Text size="footnote" bold><Text color="#e3a008">± </Text>Uncommitted changes</Text>
-            <Text size="caption" color="#e3a008">{dirtyFiles(dirty)} {dirtyFiles(dirty) === 1 ? 'file' : 'files'}</Text>
           </Box>
           {dirtyList(dirty).map(([name, n]) => (
             <Box key={name} justifyContent="space-between" gap={2}>
