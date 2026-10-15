@@ -210,3 +210,10 @@ test('sessionRows treats an unanswered question in the transcript as blocked', (
   expect(r.find(x => x.id === 'local_a')?.kind).toBe('blocked')
   expect(r.find(x => x.id === 'local_b')?.kind).toBe('idle')
 })
+
+test('claudeRows and sessionRows carry the working folder', () => {
+  const rows = claudeRows('100 /h/.claude/projects/-Users-x-Developer-app/abc.jsonl|||T|||write|||1|||claude-opus-5-5|||/Users/x/Developer/app', 110)
+  expect(rows[0].cwd).toBe('/Users/x/Developer/app')
+  const s = sessionRows(`${1_000_000_000 - 1000}|||false|||T||||||||||||claude-opus-5-5|||local_a||||||cli-a|||0|||/Users/x/app`, 1_000_000_000)
+  expect(s[0].cwd).toBe('/Users/x/app')
+})

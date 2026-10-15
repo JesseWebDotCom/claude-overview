@@ -3,7 +3,7 @@
 
 export type Kind = 'subagent' | 'claude' | 'tmux'
 export type State = 'needs' | 'working' | 'idle' | 'done' | 'problem'
-export type Row = { key: string; kind: Kind; name: string; state: State; detail: string; model?: string; ageSec: number | null; parent?: string; spawnParent?: string }
+export type Row = { key: string; kind: Kind; name: string; state: State; detail: string; model?: string; ageSec: number | null; parent?: string; spawnParent?: string; cwd?: string }
 
 const BUSY = /esc to interrupt|Working \(|✻|✽|✶|Thinking|Running…/i
 const NEEDS = /\(y\/n\)|\[y\/N\]|\[Y\/n\]|Do you want to (proceed|allow|run|make)|Would you like to run|Yes, proceed|Press enter to confirm|1\.\s+Yes/i
@@ -84,7 +84,7 @@ export function claudeRows(out: string, nowSec: number, skipId = '', links = '')
   const cliOfLocal = new Map(links3.filter(l => l[0] && l[1]).map(l => [l[1], l[0]]))
   const parentOf = new Map(links3.filter(l => l[0] && l[2]).map(l => [l[0], cliOfLocal.get(l[2])]))
   for (const line of out.split('\n')) {
-    const [head, title = '', act = '', ended = '', model = ''] = line.trim().split('|||')
+    const [head, title = '', act = '', ended = '', model = '', cwd = ''] = line.trim().split('|||')
     const m = /^(\d+) (.+\/projects\/([^/]+)\/([^/]+)\.jsonl)$/.exec(head)
     if (!m) continue
     const age = Math.max(0, nowSec - Number(m[1]))
@@ -92,7 +92,7 @@ export function claudeRows(out: string, nowSec: number, skipId = '', links = '')
     // A finished turn (last message ended with end_turn) is idle at once; otherwise it is working while the transcript keeps moving.
     const state: State = ended.trim() !== '1' && age < 45 ? 'working' : age < 6 * 3600 ? 'idle' : 'done'
     const where = m[3].replace(/^-Users-[^-]+-/, '').replace(/^Developer-(github-com-|gitea-)?/, '') || 'home'
-    rows.push({ key: 'claude:' + m[4], kind: 'claude', parent: m[4], name: clean(title).trim() || where, state, model: modelName(model) || undefined, detail: activity(act) || where, ageSec: age, spawnParent: parentOf.get(m[4]) })
+    rows.push({ key: 'claude:' + m[4], kind: 'claude', parent: m[4], name: clean(title).trim() || where, state, model: modelName(model) || undefined, detail: activity(act) || where, ageSec: age, spawnParent: parentOf.get(m[4]), cwd: cwd.trim() || undefined })
   }
   return rows
 }
@@ -282,7 +282,7 @@ export function contextNote(c: CtxView): string {
 
 // Desktop sessions (one json per session): what is asking you, what is running, what ran lately.
 export type SessKind = 'blocked' | 'idle'
-export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number; spawn: string; depth: number; cli: string; current: boolean }
+export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number; spawn: string; depth: number; cli: string; current: boolean; cwd: string }
 
 const unesc = (s: string): string => s.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\./g, '').trim()
 // One short sentence: first sentence, no parenthetical aside, at most 70 characters.
@@ -296,14 +296,14 @@ const ASKING_SEC = 3 * 86400
 export function sessionRows(out: string, nowMs: number, currentCli = ''): SessRow[] {
   const rows: SessRow[] = []
   for (const line of out.split('\n')) {
-    const [at, archived, title, cat, detail, needs, model, id, spawn, cli, pending] = line.split('|||')
+    const [at, archived, title, cat, detail, needs, model, id, spawn, cli, pending, cwd] = line.split('|||')
     const ms = Number(at)
     if (!id || !Number.isFinite(ms) || archived === 'true') continue
     const ageSec = Math.max(0, (nowMs - ms) / 1000)
     // The app writes status_category only some of the time; an unanswered question at the end of the transcript also means it is waiting on you.
     const asking = cat === 'blocked' || (pending ?? '').trim() === '1'
     if (ageSec > (asking ? ASKING_SEC : RECENT_SEC)) continue
-    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : 'idle', detail: brief(unesc(detail)), needs: brief(unesc(needs)), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli })
+    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : 'idle', detail: brief(unesc(detail)), needs: brief(unesc(needs)), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli, cwd: (cwd ?? '').trim() })
   }
   const rank: Record<SessKind, number> = { blocked: 0, idle: 1 }
   const byId = new Map(rows.map(r => [r.id, r]))

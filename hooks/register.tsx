@@ -71,6 +71,20 @@ async function run($: any, argv: string[], timeoutMs = 3000): Promise<string> {
   }
 }
 
+// Uncommitted-change counts per folder, refreshed at most every DIRTY_MS so a big repo is not scanned every poll.
+const DIRTY_MS = 10000
+const dirty = new Map<string, { n: number; at: number }>()
+export const dirtyOf = (cwd?: string): number => (cwd ? dirty.get(cwd)?.n ?? 0 : 0)
+async function refreshDirty($: any, cwds: string[], nowMs: number): Promise<void> {
+  const want = [...new Set(cwds.filter(Boolean))].filter(d => nowMs - (dirty.get(d)?.at ?? 0) >= DIRTY_MS).slice(0, 24)
+  if (want.length === 0) return
+  const out = await run($, ['sh', '-c', 'for d; do n=$(GIT_OPTIONAL_LOCKS=0 git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d " "); echo "$d|||$n"; done', 'sh', ...want], 8000)
+  for (const line of out.split('\n')) {
+    const [d, n] = line.split('|||')
+    if (d && n !== undefined) dirty.set(d, { n: Number(n) || 0, at: nowMs })
+  }
+}
+
 export async function poll($: any): Promise<void> {
   if (busy) return
   busy = true
@@ -91,7 +105,8 @@ elif echo "$L" | grep -q '"type":"thinking"'; then act=think
 else act=write; fi
 e=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1 | grep -c '"stop_reason":"end_turn"')
 m=$(tail -n 80 "$f" | grep -o '"model":"claude[^"]*"' | tail -1 | cut -d'"' -f4)
-echo "$(stat -f %m "$f") $f|||$t|||$act|||$e|||$m"
+w=$(grep -m1 -o '"cwd":"[^"]*"' "$f" | cut -d'"' -f4)
+echo "$(stat -f %m "$f") $f|||$t|||$act|||$e|||$m|||$w"
 done`
     const linkScript = String.raw`find "$HOME/Library/Application Support/Claude/claude-code-sessions" -name 'local_*.json' -mmin -1500 2>/dev/null | while read -r f; do
 echo "$(grep -o '"cliSessionId":"[^"]*"' "$f" | head -1 | cut -d'"' -f4)|||$(grep -o '"sessionId":"local_[^"]*"' "$f" | head -1 | cut -d'"' -f4)|||$(grep -o '"spawnedFrom":{"sessionId":"[^"]*"' "$f" | head -1 | cut -d'"' -f6)"
@@ -114,6 +129,7 @@ m=$(g '"model": ?"claude[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 i=$(g '"sessionId": ?"local_[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 p=$(g '"spawnedFrom": ?\{"sessionId": ?"local_[^"]*"' | grep -oE 'local_[^"]*')
 k=$(g '"cliSessionId": ?"[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
+w=$(g '"cwd": ?"[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 q=0
 if [ -n "$k" ]; then
 tf=$(ls "$HOME"/.claude/projects/*/"$k".jsonl 2>/dev/null | head -1)
@@ -122,11 +138,12 @@ L=$(tail -n 40 "$tf" | grep -E '"type":"(assistant|user)"' | tail -1)
 if echo "$L" | grep -qE '"type":"tool_use","id":"[^"]*","name":"(AskUserQuestion|ExitPlanMode)"' && ! echo "$L" | grep -q '"type":"tool_result"'; then q=1; fi
 fi
 fi
-echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k|||$q"
+echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k|||$q|||$w"
 done`
     let me = ''
     try { me = String(await $.session.id()) } catch {}
     sess = sessionRows(await run($, ['sh', '-c', sessScript], 6000), nowMs, me)
+    await refreshDirty($, [...claude.map(r => r.cwd ?? ''), ...sess.map(x => x.cwd)], nowMs)
     const subScript = String.raw`for f in $(find "$HOME/.claude/projects" -path "*/subagents/*.jsonl" -mmin -30 2>/dev/null); do
 d=$(grep -o '"description":"[^"]*"' "$(dirname "$f")/$(basename "$f" .jsonl).meta.json" 2>/dev/null | head -1 | cut -d'"' -f4)
 L=$(tail -n 40 "$f" | grep -E '"type":"(assistant|user)"' | tail -1)
@@ -237,6 +254,7 @@ export const register: Register = on => {
         {(r.model || r.detail !== '') && (
           <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
             {r.model && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(r.model)}><Text size="caption" dimColor wrap="truncate-end">{r.model}</Text></Box>}
+            {dirtyOf(r.cwd) > 0 && <Text size="caption" color="#e3a008" bold>±</Text>}
             {sub(r) !== '' && <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{dotted(sub(r), r.state === 'working', Math.floor(now / TICK_MS))}</Text></Box>}
           </Box>
         )}
@@ -344,6 +362,7 @@ export const register: Register = on => {
               {(x.model !== '' || x.detail !== '' || x.needs !== '') && (
                 <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
                   {x.model !== '' && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(x.model)}><Text size="caption" dimColor wrap="truncate-end">{x.model}</Text></Box>}
+                  {dirtyOf(x.cwd) > 0 && <Text size="caption" color="#e3a008" bold>±</Text>}
                   <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'blocked' ? '#d9b84a' : undefined} dimColor={x.kind !== 'blocked'} wrap="truncate-end">{x.kind === 'blocked' && x.needs !== '' ? x.needs : x.detail}</Text></Box>
                 </Box>
               )}
