@@ -479,7 +479,7 @@ export const register: Register = on => {
             <Box flexGrow={1} minWidth={0}>
               {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map(c => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${c.color}"/>`; x += w; return r }).join('') })()}</svg>`} />}
             </Box>
-            <Text size="caption" dimColor tabular>{ctx.percent}%{closed.has('context') ? '' : '  ' + kTokens(ctx.used) + ' / ' + kTokens(ctx.max)}</Text>
+            <Text size="caption" dimColor tabular>{ctx.percent}%</Text>
           </Box>
           <Box justifyContent="space-between" gap={2}>
             <Box flexShrink={1} minWidth={0}>
@@ -546,9 +546,11 @@ export const register: Register = on => {
             <Box flexGrow={1} minWidth={0}>
               {sess.length > 0 && <Svg height={4} alt="Sessions by state" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 4" width="700" height="4" preserveAspectRatio="none">${sess.map((x, i) => `<rect x="${i * (700 / sess.length) + 1}" width="${Math.max(1, 700 / sess.length - 2)}" height="4" rx="2" fill="${x.kind === 'blocked' ? '#e3a008' : x.kind === 'active' ? '#22c55e' : '#8a8a85'}" fill-opacity="${x.kind === 'idle' ? 0.4 : 1}"/>`).join('')}</svg>`} />}
             </Box>
-            <Text size="caption" color={sess.some(x => x.kind === 'blocked') ? '#e3a008' : undefined} dimColor={!sess.some(x => x.kind === 'blocked')}>{sessionSummary(sess)}</Text>
           </Box>
-          <Text size="caption" dimColor wrap="truncate-end">{sess.some(x => x.kind === 'blocked') ? sess.filter(x => x.kind === 'blocked').length + ' waiting on you' : 'Nothing waiting on you'}</Text>
+          <Box justifyContent="space-between" gap={2}>
+            <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{sess.some(x => x.kind === 'blocked') ? sess.filter(x => x.kind === 'blocked').length + ' waiting on you' : 'Nothing waiting on you'}</Text></Box>
+            <Box flexShrink={0}><Text size="caption" wrap="truncate-end" color={sess.some(x => x.kind === 'blocked') ? '#e3a008' : undefined} dimColor={!sess.some(x => x.kind === 'blocked')}>{sessionSummary(sess)}</Text></Box>
+          </Box>
           {closed.has('sessions') && sess.filter(x => x.kind === 'blocked').slice(0, 2).map(x => (
             <Box key={x.id} flexDirection="column">
               <Text size="caption" bold wrap="truncate-end">{x.title}</Text>
