@@ -271,7 +271,7 @@ export const register: Register = on => {
                   <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor={c.dim || c.free} wrap="truncate-end"><Text color={c.color}>■</Text> {c.name}</Text></Box>
                   <Box flexShrink={0}><Text size="caption" dimColor tabular>{c.tip && <Text color={c.tip.level === 'high' ? '#ef4444' : '#eab308'}>● </Text>}{kTokens(c.tokens)}{c.dim ? '' : '  ' + c.pct.toFixed(1) + '%'}</Text></Box>
                 </Box>
-                {c.tip && <Text size="caption" dimColor>{c.tip.tip}</Text>}
+                {c.tip && <Box paddingLeft={3} paddingBottom={1}><Text size="caption" color={c.tip.level === 'high' ? '#e5736f' : '#d9b84a'}>↳ {c.tip.tip}</Text></Box>}
               </Box>
             ))}
             {ctx.files.length > 0 && <Box flexDirection="column">
@@ -282,7 +282,7 @@ export const register: Register = on => {
                     <Box flexShrink={1} minWidth={0}><Text size="caption" dimColor wrap="truncate-end">{f.name}</Text></Box>
                     <Box flexShrink={0}><Text size="caption" dimColor tabular>{f.tip && <Text color={f.tip.level === 'high' ? '#ef4444' : '#eab308'}>● </Text>}{kTokens(f.tokens)}</Text></Box>
                   </Box>
-                  {f.tip && <Text size="caption" dimColor>{f.tip.tip}</Text>}
+                  {f.tip && <Box paddingLeft={3} paddingBottom={1}><Text size="caption" color={f.tip.level === 'high' ? '#e5736f' : '#d9b84a'}>↳ {f.tip.tip}</Text></Box>}
                 </Box>
               ))}
             </Box>}
