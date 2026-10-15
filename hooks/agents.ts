@@ -225,7 +225,8 @@ export function expandTitle(rows: Row[], indexText: string): Row[] {
 }
 
 export type CtxCat = { name: string; tokens: number; pct: number; dim: boolean; free: boolean }
-export type CtxView = { percent: number; used: number; max: number; cats: CtxCat[] }
+export type CtxFile = { name: string; type: string; tokens: number }
+export type CtxView = { percent: number; used: number; max: number; cats: CtxCat[]; files: CtxFile[] }
 
 export function kTokens(n: number): string {
   return n >= 1000 ? (n >= 100000 ? Math.round(n / 1000) : Math.round(n / 100) / 10) + 'k' : String(n)
@@ -241,7 +242,8 @@ export function contextView(usage: any): CtxView | null {
     name: String(c.name), tokens: c.tokens, pct: max > 0 ? (c.tokens / max) * 100 : 0, dim: c.isDeferred === true || c.kind === 'deferred', free: c.kind === 'free',
   }))
   const used = b?.totalTokens ?? usage?.context?.tokens ?? 0
-  return { percent: Math.round(max > 0 && used > 0 ? (used / max) * 100 : percent), used, max, cats }
+  const files: CtxFile[] = (b?.memoryFiles ?? []).filter((f: any) => f?.tokens > 0).map((f: any) => ({ name: String(f.path ?? '').split('/').pop() || String(f.path), type: String(f.type ?? ''), tokens: f.tokens })).sort((x: CtxFile, y: CtxFile) => y.tokens - x.tokens)
+  return { files, percent: Math.round(max > 0 && used > 0 ? (used / max) * 100 : percent), used, max, cats }
 }
 
 // The line under the context bar, worded like Claude's own: how much room is left before auto-compact, and a nudge to compact when it is close.
