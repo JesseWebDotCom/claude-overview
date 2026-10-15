@@ -259,8 +259,8 @@ export const register: Register = on => {
       if (((r as any).depth ?? 0) === 0 || trees.length === 0) trees.push([r])
       else trees[trees.length - 1].push(r)
     }
-    // An idle subagent never sits in the active list, even under a working parent.
-    const idleSub = (r: Row) => r.kind === 'subagent' && !isLive(r)
+    // A quiet child (subagent, spawned session or run) never sits in the active list, even under a working parent.
+    const idleSub = (r: Row) => (r.kind === 'subagent' || ((r as any).depth ?? 0) > 0) && !isLive(r)
     const active = trees.filter(t => t.some(isLive)).flat().filter(r => !idleSub(r))
     const inactive = [...trees.filter(t => !t.some(isLive)).flat(), ...trees.filter(t => t.some(isLive)).flat().filter(idleSub)]
     const types = Object.keys(TYPE_COLOR).filter(t => rows.some(r => typeOf(r) === t))
