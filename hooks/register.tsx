@@ -39,6 +39,8 @@ let busy = false
 let claudeLim: Limit[] = []
 let codexLim: Limit[] = []
 let ctx: CtxView | null = null
+let ctxMsg = ''
+let ctxMsgAt = 0
 const CTX_COLOR = ['#4a86e8', '#d97757', '#2fa36b', '#d9a21b']
 const ctxColor = (i: number, dim: boolean): string => dim ? '#8a8a8555' : CTX_COLOR[i] ?? '#8a8a85'
 // Under this many cells the pane uses shorter captions and one truncated line per row.
@@ -236,8 +238,9 @@ export const register: Register = on => {
             <Box flexGrow={1} flexShrink={1} minWidth={0}>
               {closed.has('context') ? <Svg height={6} alt="Context used" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/><rect width="${Math.max(6, Math.min(100, ctx.percent) * 7)}" height="6" rx="3" fill="${ctx.percent >= 85 ? '#ef4444' : ctx.percent >= 65 ? '#f97316' : ctx.percent >= 45 ? '#eab308' : '#22c55e'}"/></svg>`} /> : <Svg height={6} alt="Context by category" source={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 6" width="700" height="6" preserveAspectRatio="none"><rect width="700" height="6" rx="3" fill="#484f58" fill-opacity="0.5"/>${(() => { let x = 0; return ctx.cats.filter(c => !c.free && !c.dim).map((c, i) => { const w = Math.max(2, c.pct * 7); const r = `<rect x="${x}" width="${w}" height="6" fill="${ctxColor(i, false)}"/>`; x += w; return r }).join('') })()}</svg>`} />}
             </Box>
-            <Button key="compact" onPress={async () => { try { await $.session.compact() } catch { $.ui.toast('Cannot compact while a turn is running.') } }}>Compact</Button>
+            <Button key="compact" onPress={async () => { ctxMsg = 'Compacting…'; ctxMsgAt = await $.clock.now(); void $.ui.invalidate('ui.render'); try { const r = await $.session.compact(); ctxMsgAt = await $.clock.now(); ctxMsg = r?.skip ? 'Compact was skipped by a hook.' : 'Compacted.'; void poll($) } catch (err) { ctxMsgAt = await $.clock.now(); ctxMsg = 'Cannot compact while Claude is working. Try again when the turn ends.' } void $.ui.invalidate('ui.render'); }}>Compact</Button>
           </Box>
+          {ctxMsg !== '' && now - ctxMsgAt < 8000 && <Text size="caption" dimColor wrap="truncate-end">{ctxMsg}</Text>}
           {!closed.has('context') && <Box flexDirection="column" gap={1}>
             {ctx.cats.map((c, i) => (
               <Box key={c.name} justifyContent="space-between" gap={2}>
