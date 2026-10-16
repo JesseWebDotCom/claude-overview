@@ -163,7 +163,7 @@ async function play($: any, x: SessRow): Promise<void> {
     if (a.kind === 'command') await $.command.run({ command: a.command, ...(a.args ? { args: a.args } : {}) })
     else if (x.current) await $.session.send({ text: a.text })
     else await $.tool.call({ tool: 'mcp__ccd_session_mgmt__send_message', session_id: x.id, message: a.text } as never)
-    playMsg = a.kind === 'command' ? 'Ran /' + a.command : 'Sent "' + a.text + '" to ' + x.title
+    playMsg = ''
   } catch (err) {
     playMsg = 'Could not ' + (a.kind === 'command' ? 'run /' + a.command : 'send the reply') + ': ' + String((err as any)?.message ?? err).slice(0, 80)
   }
