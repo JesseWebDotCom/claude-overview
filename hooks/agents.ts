@@ -416,6 +416,8 @@ export function rowAction(ask: string, current: boolean): Action | null {
   return say ? { kind: 'reply', text: say[1].trim() } : null
 }
 
+export const actionLabel = (a: Action): string => a.kind === 'command' ? 'Run /' + a.command + (a.args ? ' ' + a.args : '') : 'Reply "' + a.text + '"'
+
 export function sessionSummary(rows: SessRow[]): string {
   const n = (k: SessKind) => rows.filter(r => r.kind === k).length
   const parts = [[n('blocked'), 'blocked'], [n('active'), 'active'], [n('idle'), 'idle']].filter(([c]) => (c as number) > 0).map(([c, w]) => c + ' ' + w)

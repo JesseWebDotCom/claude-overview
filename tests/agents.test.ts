@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, rowAction, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow, systemView } from '../hooks/agents'
+import { remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, rowAction, actionLabel, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow, systemView } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -360,4 +360,9 @@ test('rowAction: run /cmd runs here, say "x" replies to another session, everyth
   expect(rowAction('say "build it"', true)).toEqual({ kind: 'reply', text: 'build it' })
   expect(rowAction('run /Users/x/bin/tool', true)).toBeNull()
   expect(rowAction('Which fix first?', false)).toBeNull()
+})
+
+test('actionLabel names the item', () => {
+  expect(actionLabel({ kind: 'command', command: 'reload-plugins', args: '--force' })).toBe('Run /reload-plugins --force')
+  expect(actionLabel({ kind: 'reply', text: 'push' })).toBe('Reply "push"')
 })

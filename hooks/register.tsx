@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, rowAction, liveParents, remoteIds, systemView } from './agents'
+import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, rowAction, actionLabel, liveParents, remoteIds, systemView } from './agents'
 import type { SysView, Level } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit, SessRow } from './agents'
@@ -460,6 +460,7 @@ export const register: Register = on => {
         )}
       </Box>
     )
+    const askText = (x: SessRow): string => { const a = x.kind === 'blocked' ? rowAction(x.ask, x.current) : null; return a ? actionLabel(a) : x.needs !== '' ? x.needs : x.detail }
     const playBtn = (x: SessRow) => { const a = x.kind === 'blocked' ? rowAction(x.ask, x.current) : null; return a ? <Button key={'play-' + x.id} onPress={() => { void play($, x) }}><Text size="caption" bold>▶</Text></Button> : null }
     const head = (id: string, title: string, n: number) => (
       <Box justifyContent="space-between">
@@ -604,7 +605,7 @@ export const register: Register = on => {
             <Box key={x.id} flexDirection="column">
               <Text size="caption" bold wrap="truncate-end">{x.title}</Text>
               <Box justifyContent="space-between" alignItems="center" gap={2}>
-                <Box flexShrink={1} minWidth={0}><Text size="caption" color="#d9b84a" wrap="truncate-end">{x.needs !== '' ? x.needs : x.detail}</Text></Box>
+                <Box flexShrink={1} minWidth={0}><Text size="caption" color="#d9b84a" wrap="truncate-end">{askText(x)}</Text></Box>
                 {playBtn(x)}
               </Box>
             </Box>
@@ -626,7 +627,7 @@ export const register: Register = on => {
                 <Box marginLeft={2} gap={1} alignItems="flex-start" minWidth={0}>
                   {rcIds.has(x.id) && <Box paddingX={1} flexShrink={0} backgroundColor="rgba(96,165,250,0.22)"><Text size="caption" color="#60a5fa" bold>RC</Text></Box>}
                   {x.model !== '' && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(x.model)}><Text size="caption" dimColor wrap="truncate-end">{x.model}</Text></Box>}
-                  <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'blocked' ? '#d9b84a' : undefined} dimColor={x.kind !== 'blocked'} wrap="truncate-end">{x.kind === 'blocked' && x.needs !== '' ? x.needs : x.detail}</Text></Box>
+                  <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'blocked' ? '#d9b84a' : undefined} dimColor={x.kind !== 'blocked'} wrap="truncate-end">{x.kind === 'blocked' ? askText(x) : x.detail}</Text></Box>
                   {playBtn(x)}
                 </Box>
               )}
