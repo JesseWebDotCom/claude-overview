@@ -360,7 +360,7 @@ export const register: Register = on => {
     if (verb === 'first' || verb === 'last') {
       await readCards($)
       const names = rest.map(find).filter((x): x is string => !!x)
-      if (names.length === 0) return { text: 'Cards: ' + cardOrder().join(', ') + '. Use /overview ' + verb + ' <card> (several allowed), or /overview defaults.' }
+      if (names.length === 0) return { text: 'Cards: ' + cardOrder().join(', ') + '. Use /overview ' + verb + ' <card> (several allowed), or /overview reset.' }
       const cur = cardOrder().filter(id => !names.includes(id))
       order = verb === 'first' ? [...names, ...cur] : [...cur, ...names]
       await saveCards($)
