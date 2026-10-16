@@ -42,7 +42,7 @@ Default order: System, Changes, Subscriptions, Context, Sessions, Agents.
   <img src="assets/context-expanded.png" alt="Context card expanded" width="450">
 
 - **Sessions.** Your sessions from the last day: blocked, active or idle. A blocked session shows its question in amber, and the card pulses amber while anything waits on you. If the session's `YOU:` line asks for one step, its row gets a **▶** that does it: `Run /cmd` runs the command in the current session, `Reply "text"` sends that reply to another session. A question with several options gets no ▶.
-- **Agents.** Every running agent with what it is doing and its model, parents followed by children, alphabetical so rows never jump. tmux runs started by `wt.sh` show under their owning session, and FAILED, DIED or TIMEOUT turn the row red.
+- **Agents.** Every running agent with what it is doing and its model, parents followed by children, alphabetical so rows never jump. Codex runs and other tmux sessions show too.
 
 ## Good to know
 
