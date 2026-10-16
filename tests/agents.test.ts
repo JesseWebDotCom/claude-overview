@@ -357,7 +357,7 @@ test('rowAction: run /cmd runs here, say "x" replies to another session, everyth
   expect(rowAction('YOU: run /reload-plugins --force, then send a screenshot', true)).toEqual({ kind: 'command', command: 'reload-plugins', args: '--force' })
   expect(rowAction('run /reload-plugins --force', false)).toBeNull()
   expect(rowAction('say “build it” to add the card', false)).toEqual({ kind: 'reply', text: 'build it' })
-  expect(rowAction('say "build it"', true)).toBeNull()
+  expect(rowAction('say "build it"', true)).toEqual({ kind: 'reply', text: 'build it' })
   expect(rowAction('run /Users/x/bin/tool', true)).toBeNull()
   expect(rowAction('Which fix first?', false)).toBeNull()
 })

@@ -407,13 +407,13 @@ export function sessionRows(out: string, nowMs: number, currentCli = '', live: S
 }
 
 // What a blocked session asks of you, when it is one click: `run /cmd args` runs in this session, `say "text"` is sent to another one.
-// A slash command can only run here, and a reply can only go to another session (a session cannot message itself), so the rest get no button.
+// A slash command can only run here, and a reply to this session goes through $.session.send, to another through send_message.
 export type Action = { kind: 'command'; command: string; args: string } | { kind: 'reply'; text: string }
 export function rowAction(ask: string, current: boolean): Action | null {
   const cmd = /\brun\s+\/([a-z][\w-]*(?::[\w-]+)?)((?:\s+--?[\w-]+(?:=\S+)?)*)(?=[\s,.;:]|$)/i.exec(ask)
   if (cmd) return current ? { kind: 'command', command: cmd[1], args: cmd[2].trim() } : null
   const say = /\bsay\s+["\u201c]([^"\u201d]{1,60})["\u201d]/i.exec(ask)
-  return say && !current ? { kind: 'reply', text: say[1].trim() } : null
+  return say ? { kind: 'reply', text: say[1].trim() } : null
 }
 
 export function sessionSummary(rows: SessRow[]): string {
