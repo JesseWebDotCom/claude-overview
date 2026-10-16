@@ -332,7 +332,7 @@ done`
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    try { await $.command.register({ name: 'overview', description: 'Open the Overview pane; /overview hide, show, first or last <card> (subscriptions, system, context, changes, sessions, agents)' }) } catch { /* the pane still works */ }
+    try { await $.command.register({ name: 'overview', description: 'Open the Overview pane; /overview hide <card>, show <card>, or card names in order (subscriptions, system, context, changes, sessions, agents)' }) } catch { /* the pane still works */ }
     void $.ui.open({ id: PANE, title: 'Overview' })
     void poll($)
     $.clock.every(POLL_MS, () => { void poll($) })
@@ -343,6 +343,15 @@ export const register: Register = on => {
   on('command.run', { command: 'overview' }, async ($, e) => {
     const [verb, ...rest] = String(e.args ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)
     const find = (w: string) => CARDS.find(c => c[0] === w || c[0] === w + 's' || c[0] + 's' === w)?.[0]
+    const words = verb === 'order' ? rest : [verb, ...rest].filter((w): w is string => !!w)
+    if ((verb === 'order' || words.length > 0) && words.every(w => find(w))) {
+      // `/overview agents context system` or `/overview order agents context system`: those cards lead, in that order.
+      await readCards($)
+      const names = words.map(w => find(w)!).filter((id, i, a) => a.indexOf(id) === i)
+      order = [...names, ...cardOrder().filter(id => !names.includes(id))]
+      await saveCards($)
+      return { text: 'Card order: ' + order.join(', ') + '.' }
+    }
     if (verb === 'first' || verb === 'last' || verb === 'reset') {
       await readCards($)
       if (verb === 'reset') { order = []; await saveCards($); return { text: 'Card order reset: ' + cardOrder().join(', ') + '.' } }
@@ -355,7 +364,7 @@ export const register: Register = on => {
     }
     if (verb === 'hide' || verb === 'show') {
       const names = rest.length === 0 || rest[0] === 'all' ? CARDS.map(c => c[0]) : rest.map(find).filter((x): x is string => !!x)
-      if (names.length === 0) return { text: 'Cards: ' + CARDS.map(c => c[0]).join(', ') + '. Use /overview hide <card> or /overview show <card> (or all); /overview first <card> or last <card> moves one.' }
+      if (names.length === 0) return { text: 'Cards: ' + CARDS.map(c => c[0]).join(', ') + '. Use /overview hide <card> or /overview show <card> (or all); /overview agents context system sets the order.' }
       await readCards($)
       for (const id of names) await setCard($, id, verb === 'show')
       return { text: (verb === 'show' ? 'Showing ' : 'Hiding ') + names.join(', ') + '.' }
