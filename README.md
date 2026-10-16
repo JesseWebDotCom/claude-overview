@@ -55,7 +55,7 @@ By default cards run in this order: System, Changes, Subscriptions, Context, Ses
 
 Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, system, context, changes, sessions, agents; `all` works too). The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
 
-To reorder, list the cards you want on top in order: `/overview agents context system` (or `/overview order agents context system`). Any card you leave out follows in its usual order, so `/overview agents` just puts Agents first. `/overview first agents` and `/overview last agents` move one card to the top or the bottom. `/overview reset` brings back the default order. The order is kept in the same file, for example `{"hidden":[],"order":["agents","system"]}`.
+To reorder, list the cards you want on top in order: `/overview agents context system` (or `/overview order agents context system`). Any card you leave out follows in its usual order, so `/overview agents` just puts Agents first. `/overview first agents` and `/overview last agents` move one card to the top or the bottom. `/overview defaults` shows every card again and restores the default order. The order is kept in the same file, for example `{"hidden":[],"order":["agents","system"]}`.
 
 ## Changes
 

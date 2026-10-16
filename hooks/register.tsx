@@ -352,11 +352,15 @@ export const register: Register = on => {
       await saveCards($)
       return { text: 'Card order: ' + order.join(', ') + '.' }
     }
-    if (verb === 'first' || verb === 'last' || verb === 'reset') {
+    if (verb === 'defaults' || verb === 'default' || verb === 'reset') {
+      hidden.clear(); order = []
+      await saveCards($)
+      return { text: 'Back to the defaults: every card shown, in the order ' + cardOrder().join(', ') + '.' }
+    }
+    if (verb === 'first' || verb === 'last') {
       await readCards($)
-      if (verb === 'reset') { order = []; await saveCards($); return { text: 'Card order reset: ' + cardOrder().join(', ') + '.' } }
       const names = rest.map(find).filter((x): x is string => !!x)
-      if (names.length === 0) return { text: 'Cards: ' + cardOrder().join(', ') + '. Use /overview ' + verb + ' <card> (several allowed), or /overview reset.' }
+      if (names.length === 0) return { text: 'Cards: ' + cardOrder().join(', ') + '. Use /overview ' + verb + ' <card> (several allowed), or /overview defaults.' }
       const cur = cardOrder().filter(id => !names.includes(id))
       order = verb === 'first' ? [...names, ...cur] : [...cur, ...names]
       await saveCards($)
