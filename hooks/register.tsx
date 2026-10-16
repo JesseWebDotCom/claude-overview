@@ -292,14 +292,16 @@ p=$(g '"spawnedFrom": ?\{"sessionId": ?"local_[^"]*"' | grep -oE 'local_[^"]*')
 k=$(g '"cliSessionId": ?"[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 w=$(g '"cwd": ?"[^"]*"' | sed -E 's/.*: ?"//;s/"$//')
 q=0
+y=""
 if [ -n "$k" ]; then
 tf=$(ls "$HOME"/.claude/projects/*/"$k".jsonl 2>/dev/null | head -1)
 if [ -n "$tf" ]; then
 L=$(tail -n 40 "$tf" | grep -E '"type":"(assistant|user)"' | grep -vE '"isMeta":true|"content":"<(command-name|local-command)' | tail -1)
 if echo "$L" | grep -qE '"type":"tool_use","id":"[^"]*","name":"(AskUserQuestion|ExitPlanMode)"' && ! echo "$L" | grep -q '"type":"tool_result"'; then q=1; fi
+y=$(echo "$L" | grep -o 'YOU: .*' | tail -1 | sed 's/\\n.*//; s/"}.*//')
 fi
 fi
-echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k|||$q|||$w"
+echo "$a|||$r|||$t|||$c|||$d|||$n|||$m|||$i|||$p|||$k|||$q|||$w|||$y"
 done`
     let me = ''
     try { me = String(await $.session.id()) } catch {}

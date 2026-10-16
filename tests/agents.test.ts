@@ -366,3 +366,9 @@ test('actionLabel names the item', () => {
   expect(actionLabel({ kind: 'command', command: 'reload-plugins', args: '--force' })).toBe('Run /reload-plugins --force')
   expect(actionLabel({ kind: 'reply', text: 'push' })).toBe('Reply "push"')
 })
+
+test('sessionRows takes the ask from the YOU: line when the transcript has one', () => {
+  const now = 1_000_000_000_000
+  const line = [Math.floor(now / 1000) * 1000, 'false', 'T', 'blocked', 'd', 'summary words', 'claude-sonnet-5-5', 'local_a', '', 'cli1', '0', '/x', 'YOU: run /reload-plugins --force'].join('|||')
+  expect(sessionRows(line, now)[0].ask).toBe('YOU: run /reload-plugins --force')
+})
