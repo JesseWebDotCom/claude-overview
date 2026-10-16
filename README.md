@@ -1,6 +1,6 @@
 # Overview
 
-A live side pane for Claude Code. It shows how much of your Claude and Codex limits you have used, what is filling this session's context (with a one-click Compact), which of your sessions are blocked waiting on you, which folders have changes and how big they are, and every agent running right now: subagents, spawned sessions, and Codex or any other tmux session.
+A live side pane for Claude Code. It shows how healthy your machine is (CPU, memory, disk, GPU and the top processes), how much of your Claude and Codex limits you have used, what is filling this session's context (with a one-click Compact), which of your sessions are blocked waiting on you, which folders have changes and how big they are, and every agent running right now: subagents, spawned sessions, and Codex or any other tmux session.
 
 <img src="assets/overview.gif" alt="Overview pane" width="450">
 
@@ -35,7 +35,7 @@ Sessions started by another session nest under it with a ↳, like subagents do,
 
 ## Context: compact in time, see what is eating it
 
-The Context card sits under System. Its first line holds the title, the bar and the percent; the second says how much room is left. It opens into the full picture.
+The Context card sits below Subscriptions by default. Its first line holds the title, the bar and the percent; the second says how much room is left. It opens into the full picture.
 
 <img src="assets/context-expanded.png" alt="Context card expanded" width="450">
 
@@ -53,7 +53,7 @@ The System card is the first card in the pane. Collapsed, it is one line: an ico
 
 By default cards run in this order: System, Changes, Subscriptions, Context, Sessions, Agents. Context and Sessions are two lines each, with the bar beside the title. In Sessions the second line shows the waiting state on the left and the summary on the right.
 
-Type `/overview hide agents` or `/overview show agents` (cards: subscriptions, system, context, changes, sessions, agents; `all` works too). The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
+Type `/overview hide agents` or `/overview show agents` (cards: system, changes, subscriptions, context, sessions, agents; `all` works too). The choice is kept in `~/.claude/overview.json`, for example `{"hidden":["sessions"]}`, which you can also edit by hand.
 
 To reorder, list the cards you want on top in order: `/overview agents context system` (or `/overview order agents context system`). Any card you leave out follows in its usual order, so `/overview agents` just puts Agents first. `/overview first agents` and `/overview last agents` move one card to the top or the bottom. `/overview reset` shows every card again and restores the default order. The order is kept in the same file, for example `{"hidden":[],"order":["agents","system"]}`.
 
