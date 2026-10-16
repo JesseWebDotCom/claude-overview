@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow, systemView } from '../hooks/agents'
+import { remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, rowAction, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow, systemView } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -352,3 +352,12 @@ test('systemView flags a full disk and a throttled cpu', () => {
   expect(v.note).toContain('70%')
 })
 test('systemView with no data gives no card', () => { expect(systemView('')).toBeNull() })
+
+test('rowAction: run /cmd runs here, say "x" replies to another session, everything else gets no button', () => {
+  expect(rowAction('YOU: run /reload-plugins --force, then send a screenshot', true)).toEqual({ kind: 'command', command: 'reload-plugins', args: '--force' })
+  expect(rowAction('run /reload-plugins --force', false)).toBeNull()
+  expect(rowAction('say “build it” to add the card', false)).toEqual({ kind: 'reply', text: 'build it' })
+  expect(rowAction('say "build it"', true)).toBeNull()
+  expect(rowAction('run /Users/x/bin/tool', true)).toBeNull()
+  expect(rowAction('Which fix first?', false)).toBeNull()
+})

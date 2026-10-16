@@ -368,7 +368,7 @@ export function contextNote(c: CtxView): string {
 
 // Desktop sessions (one json per session): what is asking you, what is running, what ran lately.
 export type SessKind = 'blocked' | 'active' | 'idle'
-export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number; spawn: string; depth: number; cli: string; current: boolean; cwd: string }
+export type SessRow = { id: string; title: string; kind: SessKind; detail: string; needs: string; model: string; ageSec: number; spawn: string; depth: number; cli: string; current: boolean; cwd: string; ask: string }
 
 const unesc = (s: string): string => s.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\./g, '').trim()
 // One short sentence: first sentence, no parenthetical aside, at most 70 characters.
@@ -390,7 +390,7 @@ export function sessionRows(out: string, nowMs: number, currentCli = '', live: S
     // The app writes status_category only some of the time; an unanswered question at the end of the transcript also means it is waiting on you.
     const asking = cat === 'blocked' || (pending ?? '').trim() === '1'
     if (ageSec > (asking ? ASKING_SEC : RECENT_SEC)) continue
-    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : live.has((cli ?? '').trim()) ? 'active' : 'idle', detail: brief(unesc(detail)), needs: brief(unesc(needs)), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli, cwd: (cwd ?? '').trim() })
+    rows.push({ id, title: unesc(title) || 'Untitled', kind: asking ? 'blocked' : live.has((cli ?? '').trim()) ? 'active' : 'idle', detail: brief(unesc(detail)), needs: brief(unesc(needs)), model: modelName(model ?? ''), ageSec, spawn: (spawn ?? '').trim(), depth: 0, cli: (cli ?? '').trim(), current: !!currentCli && (cli ?? '').trim() === currentCli, cwd: (cwd ?? '').trim(), ask: unesc(needs) })
   }
   const byId = new Map(rows.map(r => [r.id, r]))
   const rootOf = (r: SessRow): SessRow => { let cur = r; for (let n = 0; n < 8; n++) { const p = byId.get(cur.spawn); if (!p || p === cur) break; cur = p } return cur }
@@ -404,6 +404,16 @@ export function sessionRows(out: string, nowMs: number, currentCli = '', live: S
   }
   for (const [k, members] of [...trees.entries()].sort((p, q) => byName(byId.get(p[0])!.title, byId.get(q[0])!.title) || p[0].localeCompare(q[0]))) put(byId.get(k)!, 0, members)
   return res
+}
+
+// What a blocked session asks of you, when it is one click: `run /cmd args` runs in this session, `say "text"` is sent to another one.
+// A slash command can only run here, and a reply can only go to another session (a session cannot message itself), so the rest get no button.
+export type Action = { kind: 'command'; command: string; args: string } | { kind: 'reply'; text: string }
+export function rowAction(ask: string, current: boolean): Action | null {
+  const cmd = /\brun\s+\/([a-z][\w-]*(?::[\w-]+)?)((?:\s+--?[\w-]+(?:=\S+)?)*)(?=[\s,.;:]|$)/i.exec(ask)
+  if (cmd) return current ? { kind: 'command', command: cmd[1], args: cmd[2].trim() } : null
+  const say = /\bsay\s+["\u201c]([^"\u201d]{1,60})["\u201d]/i.exec(ask)
+  return say && !current ? { kind: 'reply', text: say[1].trim() } : null
 }
 
 export function sessionSummary(rows: SessRow[]): string {

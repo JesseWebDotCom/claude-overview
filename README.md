@@ -29,6 +29,8 @@ The pane opens beside the chat. Green-to-red bars are your usage, with a line sa
 
 The Sessions card (collapsed by default, above Agents) lists your desktop sessions from the last day. Each is blocked on a question for you, active (it or one of its agents is working right now), or idle. A line under the bar always says how many are waiting on you, and a blocked session shows its question in amber, even when the card is collapsed, so you do not have to open each chat to find the one that is stuck. While anything is waiting on you, the whole card gets a pulsing amber border and a faint amber background, so it catches your eye from across the pane.
 
+A blocked session whose ask is one step gets a **▶** on its row. `run /reload-plugins --force` in the session you are in runs that command; `say "build it"` in another session sends it that reply. The ask has to be written in that form in the session's `YOU:` line, and a question with several options gets no ▶.
+
 Sessions started by another session nest under it with a ↳, like subagents do, and a ★ marks the session you are in.
 
 <img src="assets/sessions-expanded.png" alt="Sessions card expanded" width="450">

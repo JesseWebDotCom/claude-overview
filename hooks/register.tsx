@@ -1,8 +1,8 @@
 import type { Register } from 'claude-code'
-import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, liveParents, remoteIds, systemView } from './agents'
+import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, rowAction, liveParents, remoteIds, systemView } from './agents'
 import type { SysView, Level } from './agents'
 import type { CtxView } from './agents'
-import type { Row, Limit } from './agents'
+import type { Row, Limit, SessRow } from './agents'
 
 const PANE = 'overview'
 // A card waiting on you breathes: its border and tint step through these alphas once per tick.
@@ -149,6 +149,22 @@ async function showChanges($: any): Promise<void> {
   changesMsg = ''
   try { await $.tool.call({ tool: 'mcp__ccd_view__show_pane', pane: 'diff', diff_scope: 'all' } as never) } catch (first) {
     try { await $.command.run({ command: 'diff' }) } catch (err) { changesMsg = 'Could not open Changes: ' + String((err as any)?.message ?? first).slice(0, 80) }
+  }
+  void $.ui.invalidate('ui.render')
+}
+
+// ▶ on a blocked session: runs the slash command it asks for (this session) or sends it the reply it asks for (another session).
+let playMsg = ''
+async function play($: any, x: SessRow): Promise<void> {
+  const a = rowAction(x.ask, x.current)
+  if (!a) return
+  playMsg = ''
+  try {
+    if (a.kind === 'command') await $.command.run({ command: a.command, ...(a.args ? { args: a.args } : {}) })
+    else await $.tool.call({ tool: 'mcp__ccd_session_mgmt__send_message', session_id: x.id, message: a.text } as never)
+    playMsg = a.kind === 'command' ? 'Ran /' + a.command : 'Sent "' + a.text + '" to ' + x.title
+  } catch (err) {
+    playMsg = 'Could not ' + (a.kind === 'command' ? 'run /' + a.command : 'send the reply') + ': ' + String((err as any)?.message ?? err).slice(0, 80)
   }
   void $.ui.invalidate('ui.render')
 }
@@ -443,6 +459,7 @@ export const register: Register = on => {
         )}
       </Box>
     )
+    const playBtn = (x: SessRow) => { const a = x.kind === 'blocked' ? rowAction(x.ask, x.current) : null; return a ? <Button key={'play-' + x.id} onPress={() => { void play($, x) }}><Text size="caption" bold>▶</Text></Button> : null }
     const head = (id: string, title: string, n: number) => (
       <Box justifyContent="space-between">
         <Button plain key={'t' + id} onPress={() => toggle(id)}>
@@ -585,7 +602,10 @@ export const register: Register = on => {
           {closed.has('sessions') && sess.filter(x => x.kind === 'blocked').slice(0, 2).map(x => (
             <Box key={x.id} flexDirection="column">
               <Text size="caption" bold wrap="truncate-end">{x.title}</Text>
-              <Text size="caption" color="#d9b84a" wrap="truncate-end">{x.needs !== '' ? x.needs : x.detail}</Text>
+              <Box justifyContent="space-between" alignItems="center" gap={2}>
+                <Box flexShrink={1} minWidth={0}><Text size="caption" color="#d9b84a" wrap="truncate-end">{x.needs !== '' ? x.needs : x.detail}</Text></Box>
+                {playBtn(x)}
+              </Box>
             </Box>
           ))}
           {!closed.has('sessions') && sess.slice(0, 10).map(x => (
@@ -606,10 +626,12 @@ export const register: Register = on => {
                   {rcIds.has(x.id) && <Box paddingX={1} flexShrink={0} backgroundColor="rgba(96,165,250,0.22)"><Text size="caption" color="#60a5fa" bold>RC</Text></Box>}
                   {x.model !== '' && <Box paddingX={1} flexShrink={0} backgroundColor={pillColor(x.model)}><Text size="caption" dimColor wrap="truncate-end">{x.model}</Text></Box>}
                   <Box flexShrink={1} minWidth={0}><Text size="caption" color={x.kind === 'blocked' ? '#d9b84a' : undefined} dimColor={x.kind !== 'blocked'} wrap="truncate-end">{x.kind === 'blocked' && x.needs !== '' ? x.needs : x.detail}</Text></Box>
+                  {playBtn(x)}
                 </Box>
               )}
             </Box>
           ))}
+          {playMsg !== '' && <Text size="caption" dimColor wrap="truncate-end">{playMsg}</Text>}
           {!closed.has('sessions') && sess.length === 0 && <Text size="caption" dimColor>No sessions in the last day.</Text>}
         </Box>,
       agents: !hidden.has('agents') && <Box key="agents" flexDirection="column" borderStyle="round" borderColor="rgba(128,128,128,0.22)" backgroundColor="rgba(128,128,128,0.08)" paddingX={2} paddingY={1} gap={1}>
