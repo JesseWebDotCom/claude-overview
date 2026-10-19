@@ -25,17 +25,20 @@ export function paneState(text: string): State {
   return 'idle'
 }
 
-export type Pane = { session: string; id: string; command: string; activity: number; dead: boolean; pid: number }
+export type Pane = { session: string; id: string; command: string; activity: number; dead: boolean; pid: number; nth?: number }
 
+// Every non-shell pane is a row, newest activity first and live panes before dead ones, so a cap never cuts a running agent for a
+// finished one. A session with several agent panes (two windows) shows each; the first keeps the session name, the rest add the pane id.
 export function parsePanes(out: string): Pane[] {
-  const seen = new Set<string>()
   const panes: Pane[] = []
   for (const line of out.split('\n')) {
     const [session, id, command, activity, dead, pid] = line.split('|||')
-    if (!session || !id || seen.has(session) || /^-?(zsh|bash|sh|fish|dash)$/.test(command ?? '')) continue
-    seen.add(session)
+    if (!session || !id || /^-?(zsh|bash|sh|fish|dash)$/.test(command ?? '')) continue
     panes.push({ session, id, command: command ?? '', activity: Number(activity) || 0, dead: dead === '1', pid: Number(pid) || 0 })
   }
+  panes.sort((a, b) => Number(a.dead) - Number(b.dead) || b.activity - a.activity)
+  const count = new Map<string, number>()
+  for (const p of panes) { p.nth = count.get(p.session) ?? 0; count.set(p.session, p.nth + 1) }
   return panes
 }
 
@@ -72,7 +75,8 @@ export function tmuxRow(p: Pane, captured: string, nowSec: number): Row {
   // Codex's footer reads `GPT-6-Luna low · ~/path · session title`: the model, effort and what the session was started on.
   const foot = /([A-Za-z][\w.-]*(?: (?:low|medium|high|xhigh|max))?) · (?:~|\/)\S* · (.+)$/m.exec(captured)
   const ids = captured.match(/\b[A-Z][A-Z0-9]{1,}(?:-[A-Z0-9]+)*-\d+[a-z]?\b/g)
-  return { key: 'tmux:' + p.session, kind: 'tmux', name: p.session, state, model: foot ? foot[1] : undefined, detail: foot ? foot[1] + ' · ' + clean(foot[2]).trim() : ids ? ids[ids.length - 1] : last || p.command, ageSec: p.activity > 0 ? Math.max(0, nowSec - p.activity) : null }
+  const extra = p.nth ? ' ' + p.id : ''
+  return { key: 'tmux:' + p.session + extra, kind: 'tmux', name: p.session + extra, state, model: foot ? foot[1] : undefined, detail: foot ? foot[1] + ' · ' + clean(foot[2]).trim() : ids ? ids[ids.length - 1] : last || p.command, ageSec: p.activity > 0 ? Math.max(0, nowSec - p.activity) : null }
 }
 
 // `ps` elapsed time `[[dd-]hh:]mm:ss` in seconds; null when it does not parse.

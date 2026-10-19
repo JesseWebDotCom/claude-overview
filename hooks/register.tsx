@@ -17,7 +17,7 @@ const _GROUPS: { state: Row['state'][]; label: string }[] = [
   { state: ['idle'], label: 'Idle' },
   { state: ['done'], label: 'Finished' },
 ]
-const MAX_PANES = 16
+const MAX_PANES = 40
 const KIND: Record<Row['kind'], string> = { subagent: 'Subagent', claude: 'Claude session', tmux: 'Other' }
 // Subtle tints per model family; the label stays dim so the pill reads as a tag, not a button.
 const PILL: Record<string, string> = { sonnet: '#4a86e822', opus: '#d9693a22', fable: '#9a6ad922', haiku: '#3aa86a22', gpt: '#3aa86a22' }

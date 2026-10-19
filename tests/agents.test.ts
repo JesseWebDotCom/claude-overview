@@ -11,13 +11,20 @@ test('lastLine skips rules and empty prompts', () => {
   expect(lastLine('Fixed the test\n──────\n› \n')).toBe('Fixed the test')
 })
 
-test('parsePanes keeps one row per session and tmuxRow carries age', () => {
+test('parsePanes keeps every agent pane, live and newest first, and tmuxRow carries age', () => {
   const out = 'codex-w1|||%1|||node|||990|||0\ncodex-w1|||%2|||zsh|||1|||0\nbuild|||%3|||node|||0|||1'
   const panes = parsePanes(out)
   expect(panes.map(p => p.session)).toEqual(['codex-w1', 'build'])
   const r = tmuxRow(panes[0], 'Working (3s • esc to interrupt)', 1000)
   expect(r).toMatchObject({ state: 'working', ageSec: 10 })
   expect(tmuxRow(panes[1], '', 1000).state).toBe('done')
+})
+
+test('a second agent pane in one session gets its own row, and dead panes sort last', () => {
+  const panes = parsePanes('old|||%9|||node|||5|||1\ns|||%1|||codex|||900|||0\ns|||%2|||codex|||990|||0')
+  expect(panes.map(p => p.id)).toEqual(['%2', '%1', '%9'])
+  expect(panes.map(p => tmuxRow(p, '', 1000).name)).toEqual(['s', 's %1', 'old'])
+  expect(new Set(panes.map(p => tmuxRow(p, '', 1000).key)).size).toBe(3)
 })
 
 test('claudeRows reads stat lines and skips the own session', () => {
