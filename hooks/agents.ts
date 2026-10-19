@@ -109,6 +109,10 @@ export function procRows(out: string, paneSessions: Map<number, string> = new Ma
     const file = /([^/\s]+)\.(?:md|txt)\b/.exec(p.cmd)
     rows.push({ key: 'proc:' + p.pid, kind: 'tmux', name: session ?? (file ? 'codex exec ' + file[1] : 'codex exec'), state: 'working', model: models.get(/(?:^|\s)-C\s+'?([^\s']+)/.exec(p.cmd)?.[1] ?? '') ?? 'Codex', detail: session ? 'Running' : 'Running (no tmux session)', ageSec: etimeSec(p.etime) })
   }
+  // The local coding model: the Stack starts the Splash engine (a python server plus a native engine) on the first request and unloads
+  // it after the idle time. No pane or transcript exists, so the oldest engine process is one row while the engine is loaded.
+  const splash = parsed.filter(p => p.cmd.split(/\s+/)[0].includes('/engines/splash/')).sort((a, b) => (etimeSec(b.etime) ?? 0) - (etimeSec(a.etime) ?? 0))[0]
+  if (splash) rows.push({ key: 'proc:splash', kind: 'tmux', name: 'Local coding model (Splash)', state: 'idle', detail: 'Loaded, waiting for requests', ageSec: etimeSec(splash.etime) })
   return rows
 }
 

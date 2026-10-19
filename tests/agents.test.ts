@@ -379,3 +379,12 @@ test('sessionRows takes the ask from the YOU: line when the transcript has one',
   const line = [Math.floor(now / 1000) * 1000, 'false', 'T', 'blocked', 'd', 'summary words', 'claude-sonnet-5-5', 'local_a', '', 'cli1', '0', '/x', 'YOU: run /reload-plugins --force'].join('|||')
   expect(sessionRows(line, now)[0].ask).toBe('YOU: run /reload-plugins --force')
 })
+
+test('procRows shows the Splash coding engine as one Local row while it is loaded', () => {
+  const out = '10 1 35:52 /usr/local/maipai-home/stack/data/engines/splash/1.3.2/python/bin/python3 -u -m server.server /m\n11 10 35:46 /usr/local/maipai-home/stack/data/engines/splash/1.3.2/engine/splash serve-native /m\n12 1 00:01 /bin/zsh -c echo engines/splash/x'
+  const rows = procRows(out)
+  expect(rows).toHaveLength(1)
+  expect(rows[0]).toMatchObject({ name: 'Local coding model (Splash)', state: 'idle', ageSec: 35 * 60 + 52 })
+  expect(typeOf(rows[0])).toBe('local')
+  expect(procRows('12 1 00:01 /bin/zsh -c echo engines/splash/x')).toEqual([])
+})
