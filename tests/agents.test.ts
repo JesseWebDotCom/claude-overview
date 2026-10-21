@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, rowAction, actionLabel, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow, systemView } from '../hooks/agents'
+import { watchRows, remoteIds, codexModel, codexModels, paneSessions, procRows, etimeSec, contextView, contextNote, sessionRows, sessionSummary, rowAction, actionLabel, liveParents, contextAdvice, fileAdvice, kTokens, modelName, activity, expandTitle, pace, codexLimits, claudeLimits, resetsIn, typeOf, ageLabel, clean, claudeRows, subagentRows, lastLine, overlayRuns, paneState, parsePanes, sortRows, summary, tmuxRow, systemView } from '../hooks/agents'
 
 test('a pane with an approval prompt needs you; esc to interrupt is working; an empty prompt is idle', () => {
   expect(paneState('Allow command? (y/n)')).toBe('needs')
@@ -380,11 +380,22 @@ test('sessionRows takes the ask from the YOU: line when the transcript has one',
   expect(sessionRows(line, now)[0].ask).toBe('YOU: run /reload-plugins --force')
 })
 
-test('procRows shows the Splash coding engine as one Local row while it is loaded', () => {
-  const out = '10 1 35:52 /usr/local/maipai-home/stack/data/engines/splash/1.3.2/python/bin/python3 -u -m server.server /m\n11 10 35:46 /usr/local/maipai-home/stack/data/engines/splash/1.3.2/engine/splash serve-native /m\n12 1 00:01 /bin/zsh -c echo engines/splash/x'
-  const rows = procRows(out)
+test('watchRows lists a configured program by the path of its executable, not by a shell that only mentions it', () => {
+  const ps = '10 1 35:52 /opt/engines/ollama/bin/ollama serve\n11 10 35:46 /opt/engines/ollama/bin/ollama runner\n12 1 00:01 /bin/zsh -c echo ollama'
+  const cfg = '{"watch":[{"name":"Local model","match":"ollama"},{"name":"Other","match":"nothing-here"},{"name":3}]}'
+  const rows = watchRows(ps, cfg)
   expect(rows).toHaveLength(1)
-  expect(rows[0]).toMatchObject({ name: 'Local coding model (Splash)', state: 'idle', ageSec: 35 * 60 + 52 })
+  expect(rows[0]).toMatchObject({ name: 'Local model', state: 'idle', detail: 'Running', ageSec: 35 * 60 + 52 })
   expect(typeOf(rows[0])).toBe('local')
-  expect(procRows('12 1 00:01 /bin/zsh -c echo engines/splash/x')).toEqual([])
+  expect(watchRows(ps, 'not json')).toEqual([])
+  expect(watchRows(ps, '{}')).toEqual([])
+})
+
+test('procRows finds codex exec when global flags come before exec, and skips the app server', () => {
+  const out = [
+    '101 1 05:00 /Users/me/.local/bin/codex -m gpt-6-luna -c model_reasoning_effort="low" exec -C /w/a --skip-git-repo-check prompt.md',
+    '102 1 05:00 /Users/me/.local/bin/codex exec -C /w/b prompt.md',
+    '104 1 05:00 /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex app-server --listen unix://',
+  ].join('\n')
+  expect(procRows(out).map(r => r.key)).toEqual(['proc:101', 'proc:102'])
 })

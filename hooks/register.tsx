@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, rowAction, actionLabel, liveParents, remoteIds, systemView } from './agents'
+import { watchRows, codexModels, paneSessions,dotted,staleActivity, claudeRows, expandTitle, pace, overlayRuns, parsePanes, sortRows, subagentRows, codexLimits, claudeLimits, resetsIn, typeOf, summary, tmuxRow, procRows, ageLabel, contextView, kTokens, contextNote, sessionRows, sessionSummary, rowAction, actionLabel, liveParents, remoteIds, systemView } from './agents'
 import type { SysView, Level } from './agents'
 import type { CtxView } from './agents'
 import type { Row, Limit, SessRow } from './agents'
@@ -18,6 +18,7 @@ const _GROUPS: { state: Row['state'][]; label: string }[] = [
   { state: ['done'], label: 'Finished' },
 ]
 const MAX_PANES = 40
+const MAX_SESSIONS = 40
 const KIND: Record<Row['kind'], string> = { subagent: 'Subagent', claude: 'Claude session', tmux: 'Other' }
 // Subtle tints per model family; the label stays dim so the pill reads as a tag, not a button.
 const PILL: Record<string, string> = { sonnet: '#4a86e822', opus: '#d9693a22', fable: '#9a6ad922', haiku: '#3aa86a22', gpt: '#3aa86a22' }
@@ -329,8 +330,10 @@ done`
     const index = await run($, ['sh', '-c', 'tail -n 200 "$HOME/.codex/session_index.jsonl" 2>/dev/null'], 3000)
     const codexScript = String.raw`find "$HOME/.codex/sessions" -name 'rollout-*.jsonl' -mmin -240 2>/dev/null | tail -n 12 | xargs awk 'FNR<=8 { if (!c[FILENAME] && match($0, /"cwd":"[^"]*"/)) c[FILENAME]=substr($0, RSTART+7, RLENGTH-8); if (match($0, /"model":"[^"]*"/)) m[FILENAME]=substr($0, RSTART+9, RLENGTH-10); if (match($0, /"effort":"[^"]*"/)) e[FILENAME]=substr($0, RSTART+10, RLENGTH-11) } END { for (f in c) print c[f] "|||" m[f] "|||" e[f] }' 2>/dev/null`
     const models = codexModels(await run($, ['sh', '-c', codexScript], 4000))
-    const procs = procRows(await run($, ['ps', '-axo', 'pid=,ppid=,etime=,command='], 3000), paneSessions(paneOut), models)
-    const all = overlayRuns([...subs, ...claude, ...expandTitle(tmux, index), ...procs], runs)
+    const psOut = await run($, ['ps', '-axo', 'pid=,ppid=,etime=,command='], 3000)
+    const procs = procRows(psOut, paneSessions(paneOut), models)
+    const watched = watchRows(psOut, await run($, ['sh', '-c', 'cat "$HOME/.claude/overview.json" 2>/dev/null'], 2000))
+    const all = overlayRuns([...subs, ...claude, ...expandTitle(tmux, index), ...procs, ...watched], runs)
     // A busy tmux pane redraws constantly, so its last-activity age is always 0s. For working rows, show how long it has been working since this mod first saw it.
     const keep = new Set(all.map(r => r.key))
     for (const k of [...since.keys()]) if (!keep.has(k)) since.delete(k)
@@ -612,7 +615,7 @@ export const register: Register = on => {
               </Box>
             </Box>
           ))}
-          {!closed.has('sessions') && sess.slice(0, 10).map(x => (
+          {!closed.has('sessions') && sess.slice(0, MAX_SESSIONS).map(x => (
             <Box key={x.id} flexDirection="column" marginLeft={x.depth * 2}>
               <Box justifyContent="space-between" gap={2}>
                 <Box flexShrink={1} minWidth={0} gap={1}>
@@ -635,6 +638,7 @@ export const register: Register = on => {
               )}
             </Box>
           ))}
+          {!closed.has('sessions') && sess.length > MAX_SESSIONS && <Text size="caption" dimColor>{'+' + (sess.length - MAX_SESSIONS) + ' more sessions'}</Text>}
           {playMsg !== '' && <Text size="caption" dimColor wrap="truncate-end">{playMsg}</Text>}
           {!closed.has('sessions') && sess.length === 0 && <Text size="caption" dimColor>No sessions in the last day.</Text>}
         </Box>,

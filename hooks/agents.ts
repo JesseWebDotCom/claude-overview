@@ -104,15 +104,31 @@ export function procRows(out: string, paneSessions: Map<number, string> = new Ma
   const rows: Row[] = []
   for (const p of parsed) {
     const args = p.cmd.split(/\s+/)
-    if ((args[0].split('/').pop() ?? '') !== 'codex' || args[1] !== 'exec') continue
+    // Global flags such as `-m model -c key=value` come before the `exec` subcommand, so look for it among the arguments.
+    if ((args[0].split('/').pop() ?? '') !== 'codex' || !args.slice(1).includes('exec')) continue
     const session = paneOf(p.pid)
     const file = /([^/\s]+)\.(?:md|txt)\b/.exec(p.cmd)
     rows.push({ key: 'proc:' + p.pid, kind: 'tmux', name: session ?? (file ? 'codex exec ' + file[1] : 'codex exec'), state: 'working', model: models.get(/(?:^|\s)-C\s+'?([^\s']+)/.exec(p.cmd)?.[1] ?? '') ?? 'Codex', detail: session ? 'Running' : 'Running (no tmux session)', ageSec: etimeSec(p.etime) })
   }
-  // The local coding model: the Stack starts the Splash engine (a python server plus a native engine) on the first request and unloads
-  // it after the idle time. No pane or transcript exists, so the oldest engine process is one row while the engine is loaded.
-  const splash = parsed.filter(p => p.cmd.split(/\s+/)[0].includes('/engines/splash/')).sort((a, b) => (etimeSec(b.etime) ?? 0) - (etimeSec(a.etime) ?? 0))[0]
-  if (splash) rows.push({ key: 'proc:splash', kind: 'tmux', name: 'Local coding model (Splash)', state: 'idle', detail: 'Loaded, waiting for requests', ageSec: etimeSec(splash.etime) })
+  return rows
+}
+
+// Programs the user wants listed, from `~/.claude/overview.json`: `{"watch":[{"name":"Local model","match":"ollama"}]}`. A program is
+// running when the path of an executable in `ps` contains `match`; the oldest one gives the row its age. Anything malformed is ignored.
+export function watchRows(psOut: string, configText: string): Row[] {
+  let watch: { name?: unknown; match?: unknown }[] = []
+  try { const j = JSON.parse(configText) as { watch?: unknown }; if (Array.isArray(j.watch)) watch = j.watch } catch { return [] }
+  const procs: { pid: number; etime: string; exe: string }[] = []
+  for (const line of psOut.split('\n')) {
+    const m = /^\s*(\d+)\s+\d+\s+(\S+)\s+(\S+)/.exec(line)
+    if (m) procs.push({ pid: Number(m[1]), etime: m[2], exe: m[3] })
+  }
+  const rows: Row[] = []
+  for (const w of watch) {
+    if (typeof w.name !== 'string' || typeof w.match !== 'string' || !w.name.trim() || !w.match) continue
+    const hit = procs.filter(p => p.exe.includes(w.match as string)).sort((p, q) => (etimeSec(q.etime) ?? 0) - (etimeSec(p.etime) ?? 0))[0]
+    if (hit) rows.push({ key: 'watch:' + w.name, kind: 'tmux', name: w.name.trim(), state: 'idle', detail: 'Running', ageSec: etimeSec(hit.etime) })
+  }
   return rows
 }
 
